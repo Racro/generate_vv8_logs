@@ -4,6 +4,7 @@ const puppeteerExtra = require('puppeteer-extra');
 var Xvfb = require('xvfb');
 const fs = require('fs');
 const yargs = require('yargs');
+const { exec } = require('child_process');
 
 var arguments = yargs.argv;
 const extn = arguments.extn;
@@ -67,12 +68,14 @@ if (extn !== 'control'){
     pup_args.push(`--load-extension=./extn_src/${extn}`);
 }
 
-
 args = {
     args: pup_args
 };
 // args.executablePath = '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome';
+// args.executablePath = './chromium/chrome_125/chrome';
 args.executablePath = '/usr/bin/chromium-browser';
+// args.executablePath = '/usr/bin/google-chrome';
+// args.executablePath = '/home/ritik/125.0.6422.141/chrome-vv8-amd64-125.0.6422.141';
 args.headless = false;
 
 puppeteerExtra.default.use(StealthPlugin());
@@ -82,7 +85,7 @@ puppeteerExtra.default.launch(args).then(async browser => {
 
     if (extn !== 'control'){
         try {
-            await new Promise(r => setTimeout(r, 5000));
+            await new Promise(r => setTimeout(r, 10000));
             const extensionsPage = await browser.newPage();
             await extensionsPage.goto( 'chrome://extensions', { waitUntil: 'load' } );
             
@@ -105,9 +108,9 @@ puppeteerExtra.default.launch(args).then(async browser => {
     await new Promise(r => setTimeout(r, 2000));
     const context = await browser.createIncognitoBrowserContext();
     const page = await context.newPage();
-    page.setDefaultTimeout(30000);
+    page.setDefaultTimeout(45000);
 
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 5000));
 
     // URL to visit
     const url1 = 'https://www.geeksforgeeks.org/deletion-in-linked-list/';
@@ -116,13 +119,24 @@ puppeteerExtra.default.launch(args).then(async browser => {
 
     console.error('\nREACHED HERE 1\n');
 
-    try{    
-        await page.goto(url1, { waitUntil: 'networkidle2' });
-        await new Promise(r => setTimeout(r, 5000));
-    } catch(e){
-        console.error(`Nooooooooooo: ${e}`);
-        await browser.close();
-        return;
+    tries = 3
+    while (tries > 0){
+        try{    
+            await page.goto(url2, { waitUntil: 'networkidle2' });
+            await new Promise(r => setTimeout(r, 5000));
+            break;
+        } catch(e){
+            if (tries == 1){
+                exec("rm -rf vv8-*.log", (error, stdout, stderr) => {
+                    console.log(stdout);
+                })
+                console.error(`Closing browser due to failed timeouts`);
+                // page.close();
+                // await browser.close();
+            }
+            console.error(`Nooooooooooo: ${e}`);
+            tries--;
+        }
     }
 
     // Load and execute the cookies.js script
@@ -146,7 +160,7 @@ puppeteerExtra.default.launch(args).then(async browser => {
 
 
     await page.screenshot({
-        path: `screenshot_${i}.jpg`
+        path: `screenshot.jpg`
     });
 
     // await new Promise(r => setTimeout(r, 5000));

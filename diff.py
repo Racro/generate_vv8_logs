@@ -1,6 +1,11 @@
 import json
 import numpy as np
 import re
+import argparse
+
+parser = argparse.ArgumentParser(description='Get Extension')
+parser.add_argument('--extn', type=str, default='control')
+args = parser.parse_args()
 
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -32,8 +37,8 @@ def convert_to_tuple(list1): # list1 is typically [[[], []], [[], []]]
     return ret
 
 
-ctrl = json.load(open('template_crawler/vv8_logs/control/intersection_ctrl.json', 'r'))
-adb = json.load(open('template_crawler/vv8_logs/ublock/actual/intersection_adb.json', 'r'))
+ctrl = json.load(open('./vv8_logs/control/intersection_ctrl.json', 'r'))
+adb = json.load(open(f'./vv8_logs/{args.extn}/intersection_adb.json', 'r'))
 
 # normalizing the unique idenitfier in parent inside 'granular_info'
 def is_match(s):
@@ -137,5 +142,5 @@ for key in adb_granular_set:
         continue
     adb_ctrl['granular_info'][key] = diff
 
-json.dump(ctrl_adb, open('ctrl_adb.json', 'w'), cls=SetEncoder)
-json.dump(adb_ctrl, open('adb_ctrl.json', 'w'), cls=SetEncoder)
+json.dump(ctrl_adb, open(f'ctrl_{args.extn}.json', 'w'), cls=SetEncoder)
+json.dump(adb_ctrl, open('{args.extn}_ctrl.json', 'w'), cls=SetEncoder)

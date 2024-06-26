@@ -13,17 +13,18 @@ return (() => {
     ];
     const ACCEPT_COOKIES_KEYWORDS = [
       "accept",
-      "Accept",
-      "ACCEPT",
-      "Allow",
+      // "Accept",
+      // "ACCEPT",
+      // "Allow",
       "allow",
       "accept all",
-      "Accept all",
-      "ACCEPT ALL",
-      "Allow all",
+      // "Accept all",
+      // "ACCEPT ALL",
+      // "Allow all",
       "allow all",
       "consent",
-      "Consent",
+      // "Consent",
+      "accept all cookies",
   
       // German
       "Akzeptieren",
@@ -179,7 +180,7 @@ return (() => {
         for (var keyword of ACCEPT_COOKIES_KEYWORDS) {
           if (button) break;
   
-          if (element.innerText.search(keyword) == 0) {
+          if (element.innerText.toLowerCase().search(keyword.toLowerCase()) == 0) {
             button = element;
             break;
           }

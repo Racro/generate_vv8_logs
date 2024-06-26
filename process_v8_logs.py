@@ -4,6 +4,11 @@ import os
 import json
 import hashlib
 import sys
+import argparse
+
+parser = argparse.ArgumentParser(description='Get Extension')
+parser.add_argument('--extn', type=str, default='control')
+args = parser.parse_args()
 
 # remove \n from js
 pattern = r'(?<!\\)\\n'
@@ -152,7 +157,7 @@ def process_log_file(log_file_path):
             print(f'Line: {line}')
 
     output_file_path = log_file_path.split('/')[-1] + '.processed'
-    with open(f'./template_crawler/vv8_logs/control/{output_file_path}', 'w') as f:
+    with open(f'./vv8_logs/{args.extn}/{output_file_path}', 'w') as f:
         write_data = {}
         write_data['id_to_md5'] = id_to_md5
         write_data['id_to_script'] = id_to_script
@@ -161,8 +166,8 @@ def process_log_file(log_file_path):
     f.close()
 
 # Example usage
-log_files = [f for f in os.listdir('./template_crawler/vv8_logs/control') if f.endswith('.log')]
+log_files = [f for f in os.listdir(f'./vv8_logs/{args.extn}') if f.endswith('.log')]
 # print(log_files)
 for log_file in log_files:
-    log_file_path = f'./template_crawler/vv8_logs/control/{log_file}'
+    log_file_path = f'./vv8_logs/{args.extn}/{log_file}'
     process_log_file(log_file_path)

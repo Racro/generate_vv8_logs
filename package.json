@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "child-process": "^1.0.2",
     "puppeteer": "^10.2.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
