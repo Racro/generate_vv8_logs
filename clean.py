@@ -5,6 +5,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Get Extension')
 parser.add_argument('--extn', type=str, default='control')
+parser.add_argument('--site', type=str)
 args = parser.parse_args()
 
 def count_keyword_in_file(file_path, keyword):
@@ -22,7 +23,7 @@ def find_top_file_with_highest_frequency(file_list, keyword):
     if len(file_keyword_counts) > 0:
         # Step 2: Sort the files by the frequency of the keyword
         file_keyword_counts.sort(key=lambda x: x[1], reverse=True)
-        return file_keyword_counts[0][0]
+        return file_keyword_counts[:5]
     else:
         return ''
 
@@ -34,12 +35,24 @@ for file in file_list:
         log_files.append(file)
 
 file_list = [os.path.join('./', file) for file in log_files]
-keyword = "www.geeksforgeeks.org"
 
-top_file = find_top_file_with_highest_frequency(file_list, keyword)
+keyword = ''
+if 'http' in args.site:
+    keyword = args.site.split('://')[1].split('/')[0]
+else:
+    keyword = args.site.split('/')[0]
 
-if not top_file == '': 
-    if not os.path.exists(f'vv8_logs/{args.extn}'):
-        os.makedirs(f'vv8_logs/{args.extn}')
-    os.system(f'mv {top_file} vv8_logs/{args.extn}')
+if 'www' in keyword:
+    keyword = keyword.split('www.')[1]
+
+top_files = find_top_file_with_highest_frequency(file_list, keyword)
+
+if not top_files == '': 
+    if not os.path.exists(f'vv8_logs/{args.extn}/{keyword}'):
+        os.makedirs(f'vv8_logs/{args.extn}/{keyword}')
+    
+    for file in top_files:
+        if file[1] < 15:
+            continue
+        os.system(f'mv {file[0]} vv8_logs/{args.extn}/{keyword}')
     os.system('rm -rf vv8-*.log')

@@ -8,6 +8,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Get Extension')
 parser.add_argument('--extn', type=str, default='control')
+parser.add_argument('--url', type=str, default='control')
 args = parser.parse_args()
 
 # remove \n from js
@@ -39,14 +40,28 @@ def extract_js_from_log_line(line):
     return None, None
 
 def decode_escape_sequences(js_code):
-    # Decode escape sequences
-    return bytes(js_code, "utf-8").decode("unicode_escape")
+    try:
+        # Replace problematic surrogates
+        cleaned_code = js_code.encode('utf-8', 'surrogatepass').decode('utf-8', 'ignore')
+        
+        # Decode the escape sequences using 'unicode_escape'
+        decoded_string = bytes(cleaned_code, "utf-8").decode("unicode_escape")
+        
+        # Handle any surrogate pairs
+        corrected_string = decoded_string.encode('utf-16', 'surrogatepass').decode('utf-16')
+        
+        return corrected_string
+    except UnicodeDecodeError as e:
+        return f"UnicodeDecodeError: {e}"
+# def decode_escape_sequences(js_code):
+#     # Decode escape sequences
+#     return bytes(js_code, "utf-8").decode("unicode_escape")
 
 def beautify_js(js_code):
     # Beautify the JavaScript code
     return jsbeautifier.beautify(js_code)
 
-def process_log_file(log_file_path):
+def process_log_file(log_file_path, keyword):
     # Read the log file
     with open(log_file_path, 'r') as file:
         lines = file.readlines()
@@ -150,14 +165,14 @@ def process_log_file(log_file_path):
                 else:
                     granular_info[last_seen_script] = [data]
             else:
-                print("Invalid character detected")
+                print(f"Invalid character detected in logFile: {log_file_path}")
                 sys.exit(1)
         except Exception as e:
-            print(e)
-            print(f'Line: {line}')
+            print(f'Exception: {e}')
+            print(f'Line: {line} in logFile: {log_file_path}')
 
     output_file_path = log_file_path.split('/')[-1] + '.processed'
-    with open(f'./vv8_logs/{args.extn}/{output_file_path}', 'w') as f:
+    with open(f'./vv8_logs/{args.extn}/{keyword}/{output_file_path}', 'w') as f:
         write_data = {}
         write_data['id_to_md5'] = id_to_md5
         write_data['id_to_script'] = id_to_script
@@ -165,9 +180,20 @@ def process_log_file(log_file_path):
         json.dump(write_data, f)
     f.close()
 
-# Example usage
-log_files = [f for f in os.listdir(f'./vv8_logs/{args.extn}') if f.endswith('.log')]
-# print(log_files)
-for log_file in log_files:
-    log_file_path = f'./vv8_logs/{args.extn}/{log_file}'
-    process_log_file(log_file_path)
+urls = open(args.url, 'r').read().splitlines()
+for url in urls:
+    keyword = ''
+    if 'http' in url:
+        keyword = url.split('://')[1].split('/')[0]
+    else:
+        keyword = url.split('/')[0]
+
+    if 'www' in keyword:
+        keyword = keyword.split('www.')[1]
+    
+    # Example usage
+    log_files = [f for f in os.listdir(f'./vv8_logs/{args.extn}/{keyword}') if f.endswith('.log')]
+    # print(log_files)
+    for log_file in log_files:
+        log_file_path = f'./vv8_logs/{args.extn}/{keyword}/{log_file}'
+        process_log_file(log_file_path, keyword)

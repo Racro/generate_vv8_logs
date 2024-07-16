@@ -9,6 +9,7 @@ const { exec } = require('child_process');
 var arguments = yargs.argv;
 const extn = arguments.extn;
 const headless = arguments.headless;
+const url = arguments.url;
 
 // console.log(`arguments: ${extn}, ${headless}`);
 
@@ -42,9 +43,8 @@ async function autoScroll(page) {
                 window.scrollBy(0, distance);
                 totalHeight += distance;
 
-                if (totalHeight >= scrollHeight) {
+                if ((totalHeight >= scrollHeight) || (totalHeight >= 18000)) {
                     clearInterval(timer);
-
                     resolve();
                 }
             }, 100);
@@ -112,20 +112,20 @@ puppeteerExtra.default.launch(args).then(async browser => {
     const url1 = 'https://www.geeksforgeeks.org/deletion-in-linked-list/';
     const url2 = 'https://stackoverflow.com/questions/67698176/error-loading-webview-error-could-not-register-service-workers-typeerror-fai'
     const url3 = 'https://www.nytimes.com'
-
+     
     console.error('\nREACHED HERE 1\n');
 
     tries = 3
     while (tries > 0){
         try{    
-            await page.goto(url1, { waitUntil: 'networkidle2' });
+            await page.goto(url, { waitUntil: 'networkidle2' });
             await new Promise(r => setTimeout(r, 5000));
             break;
         } catch(e){
             if (tries == 1){
-                exec("rm -rf vv8-*.log", (error, stdout, stderr) => {
-                    console.log(stdout);
-                })
+                // exec("rm -rf vv8-*.log", (error, stdout, stderr) => {
+                //     console.log(stdout);
+                // })
                 console.error(`Closing browser due to failed timeouts`);
                 // page.close();
                 // await browser.close();

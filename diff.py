@@ -5,6 +5,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Get Extension')
 parser.add_argument('--extn', type=str, default='control')
+parser.add_argument('--url', type=str, default='control')
 args = parser.parse_args()
 
 class SetEncoder(json.JSONEncoder):
@@ -36,10 +37,6 @@ def convert_to_tuple(list1): # list1 is typically [[[], []], [[], []]]
 
     return ret
 
-
-ctrl = json.load(open('./vv8_logs/control/intersection_ctrl.json', 'r'))
-adb = json.load(open(f'./vv8_logs/{args.extn}/intersection_adb.json', 'r'))
-
 # normalizing the unique idenitfier in parent inside 'granular_info'
 def is_match(s):
     # Define the regex pattern
@@ -56,91 +53,105 @@ def is_match(s):
         print(e)
         print(s)
 
-for key in ctrl['granular_info'].keys():
-    for i in range(len(ctrl['granular_info'][key])):
-        for j in range(len(ctrl['granular_info'][key][i])):
-            if ctrl['granular_info'][key][i][j][0] == 'parent':
-                found, strr = is_match(ctrl['granular_info'][key][i][j][1]) 
-                if found:
-                    ctrl['granular_info'][key][i][j] = ["parent", f"{{1,{strr}}}"]
-            elif ctrl['granular_info'][key][i][j][0] == 'receiver':
-                found, strr = is_match(ctrl['granular_info'][key][i][j][1]) 
-                if found:
-                    ctrl['granular_info'][key][i][j] = ["receiver", f"{{1,{strr}}}"]
-            elif ctrl['granular_info'][key][i][j][0] == 'script':
-                found, strr = is_match(ctrl['granular_info'][key][i][j][1]) 
-                if found:
-                    ctrl['granular_info'][key][i][j] = ["script", f"{{1,{strr}}}"]
-            elif ctrl['granular_info'][key][i][j][0] == 'rest':
-                found, strr = is_match(ctrl['granular_info'][key][i][j][1]) 
-                if found:
-                    ctrl['granular_info'][key][i][j] = ["rest", f"{{1,{strr}}}"]
+urls = open(args.url, 'r').read().splitlines()
+for url in urls:
+    keyword = ''
+    if 'http' in url:
+        keyword = url.split('://')[1].split('/')[0]
+    else:
+        keyword = url.split('/')[0]
 
-for key in adb['granular_info'].keys():
-    for i in range(len(adb['granular_info'][key])):
-        for j in range(len(adb['granular_info'][key][i])):
-            if adb['granular_info'][key][i][j][0] == 'parent':
-                found, strr = is_match(adb['granular_info'][key][i][j][1]) 
-                if found:
-                    adb['granular_info'][key][i][j] = ["parent", f"{{1,{strr}}}"]
-            elif adb['granular_info'][key][i][j][0] == 'receiver':
-                found, strr = is_match(adb['granular_info'][key][i][j][1]) 
-                if found:
-                    adb['granular_info'][key][i][j] = ["receiver", f"{{1,{strr}}}"]
-            elif adb['granular_info'][key][i][j][0] == 'script':
-                found, strr = is_match(adb['granular_info'][key][i][j][1]) 
-                if found:
-                    adb['granular_info'][key][i][j] = ["script", f"{{1,{strr}}}"]
-            elif adb['granular_info'][key][i][j][0] == 'rest':
-                found, strr = is_match(adb['granular_info'][key][i][j][1]) 
-                if found:
-                    adb['granular_info'][key][i][j] = ["rest", f"{{1,{strr}}}"]
+    if 'www' in keyword:
+        keyword = keyword.split('www.')[1]
+
+    ctrl = json.load(open(f'./vv8_logs/control/{keyword}/intersection.json', 'r'))
+    adb = json.load(open(f'./vv8_logs/{args.extn}/{keyword}/intersection.json', 'r'))
+
+    for key in ctrl['granular_info'].keys():
+        for i in range(len(ctrl['granular_info'][key])):
+            for j in range(len(ctrl['granular_info'][key][i])):
+                if ctrl['granular_info'][key][i][j][0] == 'parent':
+                    found, strr = is_match(ctrl['granular_info'][key][i][j][1]) 
+                    if found:
+                        ctrl['granular_info'][key][i][j] = ["parent", f"{{1,{strr}}}"]
+                elif ctrl['granular_info'][key][i][j][0] == 'receiver':
+                    found, strr = is_match(ctrl['granular_info'][key][i][j][1]) 
+                    if found:
+                        ctrl['granular_info'][key][i][j] = ["receiver", f"{{1,{strr}}}"]
+                elif ctrl['granular_info'][key][i][j][0] == 'script':
+                    found, strr = is_match(ctrl['granular_info'][key][i][j][1]) 
+                    if found:
+                        ctrl['granular_info'][key][i][j] = ["script", f"{{1,{strr}}}"]
+                elif ctrl['granular_info'][key][i][j][0] == 'rest':
+                    found, strr = is_match(ctrl['granular_info'][key][i][j][1]) 
+                    if found:
+                        ctrl['granular_info'][key][i][j] = ["rest", f"{{1,{strr}}}"]
+
+    for key in adb['granular_info'].keys():
+        for i in range(len(adb['granular_info'][key])):
+            for j in range(len(adb['granular_info'][key][i])):
+                if adb['granular_info'][key][i][j][0] == 'parent':
+                    found, strr = is_match(adb['granular_info'][key][i][j][1]) 
+                    if found:
+                        adb['granular_info'][key][i][j] = ["parent", f"{{1,{strr}}}"]
+                elif adb['granular_info'][key][i][j][0] == 'receiver':
+                    found, strr = is_match(adb['granular_info'][key][i][j][1]) 
+                    if found:
+                        adb['granular_info'][key][i][j] = ["receiver", f"{{1,{strr}}}"]
+                elif adb['granular_info'][key][i][j][0] == 'script':
+                    found, strr = is_match(adb['granular_info'][key][i][j][1]) 
+                    if found:
+                        adb['granular_info'][key][i][j] = ["script", f"{{1,{strr}}}"]
+                elif adb['granular_info'][key][i][j][0] == 'rest':
+                    found, strr = is_match(adb['granular_info'][key][i][j][1]) 
+                    if found:
+                        adb['granular_info'][key][i][j] = ["rest", f"{{1,{strr}}}"]
 
 
-ctrl_adb = {}
-adb_ctrl = {}
+    ctrl_adb = {}
+    adb_ctrl = {}
 
-ctrl_script_set = set(ctrl['id_to_script'].keys())
-adb_script_set = set(adb['id_to_script'].keys())
-ctrl_granular_set = set(ctrl['granular_info'].keys())
-adb_granular_set = set(adb['granular_info'].keys())
+    ctrl_script_set = set(ctrl['id_to_script'].keys())
+    adb_script_set = set(adb['id_to_script'].keys())
+    ctrl_granular_set = set(ctrl['granular_info'].keys())
+    adb_granular_set = set(adb['granular_info'].keys())
 
-ctrl_adb['id_to_script'] = {}
-ctrl_adb['granular_info'] = {}
-adb_ctrl['id_to_script'] = {}
-adb_ctrl['granular_info'] = {}
+    ctrl_adb['id_to_script'] = {}
+    ctrl_adb['granular_info'] = {}
+    adb_ctrl['id_to_script'] = {}
+    adb_ctrl['granular_info'] = {}
 
-for key in (ctrl_script_set - adb_script_set):
-    ctrl_adb['id_to_script'][key] = ctrl['id_to_script'][key]
+    for key in (ctrl_script_set - adb_script_set):
+        ctrl_adb['id_to_script'][key] = ctrl['id_to_script'][key]
 
-for key in (adb_script_set - ctrl_script_set):
-    adb_ctrl['id_to_script'][key] = adb['id_to_script'][key]
+    for key in (adb_script_set - ctrl_script_set):
+        adb_ctrl['id_to_script'][key] = adb['id_to_script'][key]
 
-for key in ctrl_granular_set:
-    try:
-        if key not in adb_granular_set:
-            diff = list(convert_to_tuple(ctrl['granular_info'][key]))
+    for key in ctrl_granular_set:
+        try:
+            if key not in adb_granular_set:
+                diff = list(convert_to_tuple(ctrl['granular_info'][key]))
+            else:
+                # print(ctrl['granular_info'][key])
+                diff = list(convert_to_tuple(ctrl['granular_info'][key]) - convert_to_tuple(adb['granular_info'][key]))
+
+            if diff == []:
+                continue
+            ctrl_adb['granular_info'][key] = diff
+        except Exception as e:
+            print('1'*50)
+            print(e)
+            break
+
+    for key in adb_granular_set:
+        if key not in ctrl_granular_set:
+            diff = list(convert_to_tuple(adb['granular_info'][key]))
         else:
-            # print(ctrl['granular_info'][key])
-            diff = list(convert_to_tuple(ctrl['granular_info'][key]) - convert_to_tuple(adb['granular_info'][key]))
+            diff = list(convert_to_tuple(adb['granular_info'][key]) - convert_to_tuple(ctrl['granular_info'][key]))
 
         if diff == []:
             continue
-        ctrl_adb['granular_info'][key] = diff
-    except Exception as e:
-        print('1'*50)
-        print(e)
-        break
+        adb_ctrl['granular_info'][key] = diff
 
-for key in adb_granular_set:
-    if key not in ctrl_granular_set:
-        diff = list(convert_to_tuple(adb['granular_info'][key]))
-    else:
-        diff = list(convert_to_tuple(adb['granular_info'][key]) - convert_to_tuple(ctrl['granular_info'][key]))
-
-    if diff == []:
-        continue
-    adb_ctrl['granular_info'][key] = diff
-
-json.dump(ctrl_adb, open(f'ctrl_{args.extn}.json', 'w'), cls=SetEncoder)
-json.dump(adb_ctrl, open('{args.extn}_ctrl.json', 'w'), cls=SetEncoder)
+    json.dump(ctrl_adb, open(f'ctrl_{args.extn}_{keyword}.json', 'w'), cls=SetEncoder)
+    json.dump(adb_ctrl, open(f'{args.extn}_ctrl_{keyword}.json', 'w'), cls=SetEncoder)
