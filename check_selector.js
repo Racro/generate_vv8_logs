@@ -1,17 +1,21 @@
 const puppeteer = require('puppeteer');
+const Xvfb = require('xvfb');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const puppeteerExtra = require('puppeteer-extra');
-var Xvfb = require('xvfb');
 const fs = require('fs');
 const yargs = require('yargs');
 const { exec } = require('child_process');
 
 var arguments = yargs.argv;
 const extn = arguments.extn;
-const headless = arguments.headless;
-const url = arguments.url;
+const arg_headless = arguments.headless;
+const arg_url = arguments.url;
 
-// console.log(`arguments: ${extn}, ${headless}`);
+// Create a new Xvfb instance
+const xvfb = new Xvfb({
+    silent: true,
+    xvfb_args: ['-screen', '0', '1024x768x24', '-ac']
+});
 
 // Function to read the cookies.js script
 const loadCookiesScript = () => {
@@ -25,12 +29,6 @@ const loadCookiesScript = () => {
         });
     });
 };
-
-var xvfb = new Xvfb({
-    silent: true,
-    reuse: true,
-    xvfb_args: ["-screen", "0", '1280x720x24', "-ac"],
-});
 
 // Function to scroll and load more content
 async function autoScroll(page) {
@@ -57,27 +55,31 @@ var pup_args = [
     '--disable-web-security',
     '--disable-features=IsolateOrigins,site-per-process',
     '--start-maximized',
+    // '--disable-gpu',
 ];
 
-if (headless == 'true'){
+if (arg_headless == 'true'){
     xvfb.startSync((err)=>{if (err) console.error(err)});
     pup_args.push(`--display=${xvfb._display}`);
+    // console.error(`\nXVFB: ${xvfb._display}\n`)
 }
 if (extn !== 'control'){
     pup_args.push(`--disable-extensions-except=./extn_src/${extn}`);
     pup_args.push(`--load-extension=./extn_src/${extn}`);
 }
 
-args = {
-    args: pup_args
-};
-args.executablePath = '/usr/bin/chromium-browser';
-args.headless = false;
+(async () => {
+    args = {
+        args: pup_args
+    };
 
-puppeteerExtra.default.use(StealthPlugin());
-puppeteerExtra.default.launch(args).then(async browser => {
-// puppeteer.launch(args).then(async browser => {
-    // const browser = await puppeteer.launch(args);
+    args.executablePath = '/usr/bin/chromium-browser';
+    args.headless = false;
+
+    // Launch the browser
+    puppeteerExtra.default.use(StealthPlugin());
+    // puppeteerExtra.default.launch(args).then(async browser => {
+    const browser = await puppeteerExtra.default.launch(args);
 
     if (extn !== 'control'){
         try {
@@ -105,7 +107,7 @@ puppeteerExtra.default.launch(args).then(async browser => {
     const context = await browser.createIncognitoBrowserContext();
     const page = await context.newPage();
     page.setDefaultTimeout(45000);
-
+    
     await new Promise(r => setTimeout(r, 5000));
 
     // URL to visit
@@ -118,7 +120,7 @@ puppeteerExtra.default.launch(args).then(async browser => {
     tries = 3
     while (tries > 0){
         try{    
-            await page.goto(url, { waitUntil: 'networkidle2' });
+            await page.goto(arg_url, { waitUntil: 'networkidle2' });
             await new Promise(r => setTimeout(r, 5000));
             break;
         } catch(e){
@@ -162,6 +164,7 @@ puppeteerExtra.default.launch(args).then(async browser => {
     // await new Promise(r => setTimeout(r, 5000));
     page.close()
     await browser.close();
-});
-xvfb.stopSync();
 
+    // Stop xvfb
+    xvfb.stopSync();
+})();

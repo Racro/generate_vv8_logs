@@ -54,13 +54,13 @@ def main():
             count = 0
             for log_file in log_files:
                 log_file_path = f'./vv8_logs/{args.extn}/{keyword}/{log_file}'
-                # master[count] = json.load(open(log_file_path, 'r'))
-                master[count] = ijson.items(open(log_file_path, 'r'), 'item')
+                master[count] = json.load(open(log_file_path, 'r'))
+                # master[count] = ijson.items(open(log_file_path, 'r'), 'item')
                 count = count + 1
 
-            for item in master[0]:
-                print(item['key'])
-            sys.exit(1)
+            # for item in master[0]:
+            #     print(item['key'])
+            # sys.exit(1)
 
             # keys - 'id_to_script' & 'granular_info'
             common_script_set = set(master[0]['id_to_script'].keys())
