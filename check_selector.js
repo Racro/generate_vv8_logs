@@ -10,12 +10,13 @@ var arguments = yargs.argv;
 const extn = arguments.extn;
 const arg_headless = arguments.headless;
 const arg_url = arguments.url;
+const arg_display = arguments.display;
 
 // Create a new Xvfb instance
-const xvfb = new Xvfb({
-    silent: true,
-    xvfb_args: ['-screen', '0', '1024x768x24', '-ac']
-});
+// const xvfb = new Xvfb({
+//     silent: true,
+//     xvfb_args: ['-screen', '0', '1024x768x24', '-ac']
+// });
 
 // Function to read the cookies.js script
 const loadCookiesScript = () => {
@@ -55,14 +56,9 @@ var pup_args = [
     '--disable-web-security',
     '--disable-features=IsolateOrigins,site-per-process',
     '--start-maximized',
-    // '--disable-gpu',
+    '--disable-gpu',
 ];
 
-if (arg_headless == 'true'){
-    xvfb.startSync((err)=>{if (err) console.error(err)});
-    pup_args.push(`--display=${xvfb._display}`);
-    // console.error(`\nXVFB: ${xvfb._display}\n`)
-}
 if (extn !== 'control'){
     pup_args.push(`--disable-extensions-except=./extn_src/${extn}`);
     pup_args.push(`--load-extension=./extn_src/${extn}`);
@@ -75,6 +71,13 @@ if (extn !== 'control'){
 
     args.executablePath = '/usr/bin/chromium-browser';
     args.headless = false;
+    args.dumpio = true
+
+    if (arg_headless == 'true'){
+        // xvfb.startSync((err)=>{if (err) console.error(err)});
+        // pup_args.push(`--display=${arg_display}`);
+        // console.error(`\nXVFB: ${xvfb._display}\n`)
+    }
 
     // Launch the browser
     puppeteerExtra.default.use(StealthPlugin());
@@ -86,7 +89,6 @@ if (extn !== 'control'){
             await new Promise(r => setTimeout(r, 10000));
             const extensionsPage = await browser.newPage();
             await extensionsPage.goto( 'chrome://extensions', { waitUntil: 'load' } );
-            
             await extensionsPage.screenshot({ path: 'extension.png'});
 
             await extensionsPage.evaluate(`
@@ -107,7 +109,7 @@ if (extn !== 'control'){
     const context = await browser.createIncognitoBrowserContext();
     const page = await context.newPage();
     page.setDefaultTimeout(45000);
-    
+
     await new Promise(r => setTimeout(r, 5000));
 
     // URL to visit
@@ -129,8 +131,8 @@ if (extn !== 'control'){
                 //     console.log(stdout);
                 // })
                 console.error(`Closing browser due to failed timeouts`);
-                // page.close();
-                // await browser.close();
+                page.close();
+                await browser.close();
             }
             console.error(`Nooooooooooo: ${e}`);
             tries--;
@@ -156,7 +158,6 @@ if (extn !== 'control'){
             console.error(`${i}: ${msg.args()[i]}`);
     });
 
-
     await page.screenshot({
         path: `screenshot.jpg`
     });
@@ -166,5 +167,5 @@ if (extn !== 'control'){
     await browser.close();
 
     // Stop xvfb
-    xvfb.stopSync();
+    // xvfb.stopSync();
 })();

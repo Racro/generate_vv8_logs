@@ -5,20 +5,10 @@ import json
 import hashlib
 import sys
 import argparse
-
-parser = argparse.ArgumentParser(description='Get Extension')
-parser.add_argument('--extn', type=str, default='control')
-parser.add_argument('--url', type=str, default='control')
-args = parser.parse_args()
+import multiprocessing
 
 # remove \n from js
 pattern = r'(?<!\\)\\n'
-
-id_to_md5 = {}
-id_to_script = {}
-id_to_script['window'] = {}
-
-granular_info = {}
 
 def split_unescaped_colons(s):
     # Regular expression pattern to match unescaped colons
@@ -61,139 +51,180 @@ def beautify_js(js_code):
     # Beautify the JavaScript code
     return jsbeautifier.beautify(js_code)
 
-def process_log_file(log_file_path, keyword):
-    # Read the log file
-    with open(log_file_path, 'r') as file:
-        lines = file.readlines()
+def process_log_file(arguments):
+    try:
+        log_file_path, keyword, extn = arguments
+        # print(log_file_path, keyword, extn)
+        id_to_md5 = {}
+        id_to_script = {}
+        id_to_script['window'] = {}
 
-    last_seen_script = 0
-    for line in lines:
-        if line[-1] == '\n':
-            line = line[:-1]
-        try:
-            # filename, js_code = extract_js_from_log_line(line)
-            if line[:3] == '~0x':
-                id_to_script['context'] = hashlib.md5(line.encode('utf-8')).hexdigest()[:6]
-            elif line[0] == '@':
-                hash = hashlib.md5(line[1:].encode('utf-8')).hexdigest()[:6]
-                if hash not in id_to_script['window'].keys():
-                    id_to_script['window'][hash] = line[1:]
-            elif line[0] == '$':
-                line = split_unescaped_colons(line[1:])
-                
-                data = {}
+        granular_info = {}
+        
+        # Read the log file
+        with open(log_file_path, 'r') as file:
+            lines = file.readlines()
 
-                if (line[1].isnumeric()):
-                    data['src_name'] = id_to_md5[line[1]]
-                else:
-                    data['src_name'] = line[1]
-                
-                data['src'] = decode_escape_sequences(line[2])
-                data['src'] = re.sub(pattern, '', data['src'])
-                data['src'] = re.sub(r'[\s\x0B\x0C]+', '', data['src'])
+        last_seen_script = 0
+        for line in lines:
+            if line[-1] == '\n':
+                line = line[:-1]
+            try:
+                # filename, js_code = extract_js_from_log_line(line)
+                if line[:3] == '~0x':
+                    id_to_script['context'] = hashlib.md5(line.encode('utf-8')).hexdigest()[:8]
+                elif line[0] == '@':
+                    hash = hashlib.md5(line[1:].encode('utf-8')).hexdigest()[:8]
+                    if hash not in id_to_script['window'].keys():
+                        id_to_script['window'][hash] = line[1:]
+                elif line[0] == '$':
+                    line = split_unescaped_colons(line[1:])
+                    data = {}
 
-                sid_hash = hashlib.md5(data['src'].encode('utf-8')).hexdigest()[:6]
-                id_to_md5[line[0]] = sid_hash
-
-                id_to_script[sid_hash] = data
-
-            elif line[0] == '!':
-                if line[1] == '?':
-                    last_seen_script = '?'
-                else:
-                    last_seen_script = id_to_md5[line[1:]]
-            
-            elif line[0] == 'c':
-                # print(line)
-                line = split_unescaped_colons(line[1:])
-                data = {}
-                data['action'] = 'call'
-                data['offset'] = line[0]
-                data['func_name'] = line[1]
-                # data['receiver'] = line[2]
-                # if (len(line) > 3):
-                #     data['script'] = decode_escape_sequences(line[3])
-                #     data['script'] = re.sub(pattern, '', data['script'])
-                #     data['script'] = re.sub(r'[\s\x0B\x0C]+', '', data['script'])
+                    if (line[1].isnumeric()):
+                        data['src_name'] = id_to_md5[line[1]]
+                    else:
+                        data['src_name'] = line[1]
                     
-                # if (len(line) > 4):
-                #     # print(f'the function call log (cXXX) has more fields: {len(line)}')
-                #     data['rest'] = ":".join(line[4:])
+                    data['src'] = decode_escape_sequences(line[2])
+                    data['src'] = re.sub(pattern, '', data['src'])
+                    data['src'] = re.sub(r'[\s\x0B\x0C]+', '', data['src'])
+
+                    sid_hash = hashlib.md5(data['src'].encode('utf-8')).hexdigest()[:8]
+                    id_to_md5[line[0]] = sid_hash
+                    
+                    if sid_hash in id_to_script.keys() and data['src'] != id_to_script[sid_hash]['src']:
+                        print("\nCOLLISION DETECTED WOOOOO!!!!\n")
+                        print(data['src_name'], log_file_path, id_to_script[sid_hash]['src_name'])
+                        sid_hash = hashlib.sha256(data['src'].encode('utf-8')).hexdigest()
+                    
+                    id_to_script[sid_hash] = data
+
+                elif line[0] == '!':
+                    if line[1] == '?':
+                        last_seen_script = '?'
+                    else:
+                        last_seen_script = id_to_md5[line[1:]]
                 
-                if last_seen_script in granular_info.keys():
-                    granular_info[last_seen_script].append(data)
+                elif line[0] == 'c':
+                    # print(line)
+                    line = split_unescaped_colons(line[1:])
+                    data = {}
+                    data['action'] = 'call'
+                    data['offset'] = line[0]
+                    data['func_name'] = line[1]
+                    # data['receiver'] = line[2]
+                    # if (len(line) > 3):
+                    #     data['script'] = decode_escape_sequences(line[3])
+                    #     data['script'] = re.sub(pattern, '', data['script'])
+                    #     data['script'] = re.sub(r'[\s\x0B\x0C]+', '', data['script'])
+                        
+                    # if (len(line) > 4):
+                    #     # print(f'the function call log (cXXX) has more fields: {len(line)}')
+                    #     data['rest'] = ":".join(line[4:])
+                    
+                    if last_seen_script in granular_info.keys():
+                        granular_info[last_seen_script].append(data)
+                    else:
+                        granular_info[last_seen_script] = [data]
+                elif line[0] == 'n':
+                    line = split_unescaped_colons(line[1:])
+                    data = {}
+                    data['action'] = 'new'
+                    data['offset'] = line[0]
+                    data['func_name'] = line[1]
+                    # if (len(line) > 2):
+                    #     # print(f'the function call log (nXXX) has more fields: {len(line)}')
+                    #     data['rest'] = line[2]   
+                    if last_seen_script in granular_info.keys():
+                        granular_info[last_seen_script].append(data)
+                    else:
+                        granular_info[last_seen_script] = [data]
+                elif line[0] == 'g':
+                    line = split_unescaped_colons(line[1:])
+                    data = {}
+                    data['action'] = 'get'
+                    data['offset'] = line[0]
+                    # data['parent'] = line[1]
+                    data['property_name'] = line[2]
+                
+                    if last_seen_script in granular_info.keys():
+                        granular_info[last_seen_script].append(data)
+                    else:
+                        granular_info[last_seen_script] = [data]
+                elif line[0] == 's':
+                    line = split_unescaped_colons(line[1:])
+                    data = {}
+                    data['action'] = 'set'
+                    data['offset'] = line[0]
+                    # data['parent'] = line[1]
+                    data['property_name'] = line[2]
+                    data['new_val'] = decode_escape_sequences(line[3])
+                    data['new_val'] = re.sub(pattern, '', data['new_val'])
+                    data['new_val'] = re.sub(r'[\s\x0B\x0C]+', '', data['new_val'])
+
+                    if last_seen_script in granular_info.keys():
+                        granular_info[last_seen_script].append(data)
+                    else:
+                        granular_info[last_seen_script] = [data]
                 else:
-                    granular_info[last_seen_script] = [data]
-            elif line[0] == 'n':
-                line = split_unescaped_colons(line[1:])
-                data = {}
-                data['action'] = 'new'
-                data['offset'] = line[0]
-                data['func_name'] = line[1]
-                # if (len(line) > 2):
-                #     # print(f'the function call log (nXXX) has more fields: {len(line)}')
-                #     data['rest'] = line[2]   
-                if last_seen_script in granular_info.keys():
-                    granular_info[last_seen_script].append(data)
-                else:
-                    granular_info[last_seen_script] = [data]
-            elif line[0] == 'g':
-                line = split_unescaped_colons(line[1:])
-                data = {}
-                data['action'] = 'get'
-                data['offset'] = line[0]
-                # data['parent'] = line[1]
-                data['property_name'] = line[2]
+                    print(f"Invalid character detected in logFile: {log_file_path}")
+                    sys.exit(1)
+            except Exception as e:
+                print(f'Exception: {e}')
+                print(f'Line: {line} in logFile: {log_file_path}')
+
+        output_file_path = log_file_path.split('/')[-1] + '.processed'
+        with open(f'./vv8_logs/{extn}/{keyword}/{output_file_path}', 'w') as f:
+            write_data = {}
+            write_data['id_to_md5'] = id_to_md5
+            write_data['id_to_script'] = id_to_script
+            write_data['granular_info'] = granular_info
+            json.dump(write_data, f)
+        f.close()
+    except Exception as e:
+        print(e)
+        print(arguments)
+        return
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Get Extension')
+    parser.add_argument('--extn', type=str, default='control')
+    parser.add_argument('--url', type=str, default='control')
+    args = parser.parse_args()
+
+    urls = open(args.url, 'r').read().splitlines()
+    log_file_pool = []
+    for url in urls:
+        keyword = ''
+        if 'http' in url:
+            keyword = url.split('://')[1].split('/')[0]
+        else:
+            keyword = url.split('/')[0]
+
+        if 'www' in keyword:
+            keyword = keyword.split('www.')[1]
+        
+        # Example usage
+        log_files = [f for f in os.listdir(f'./vv8_logs/{args.extn}/{keyword}') if f.endswith('.log')]
+        # print(log_files)
+        for log_file in log_files:
+            log_file_path = f'./vv8_logs/{args.extn}/{keyword}/{log_file}'
+            log_file_pool.append((log_file_path, keyword, args.extn))
+            # process_log_file(log_file_path, keyword)
+
+    try:
+        # Create a pool of worker processes
+        # print(log_file_pool)
+        with multiprocessing.Pool() as pool:
+            # Map the worker function to the arguments
+            results = pool.map(process_log_file, log_file_pool)
             
-                if last_seen_script in granular_info.keys():
-                    granular_info[last_seen_script].append(data)
-                else:
-                    granular_info[last_seen_script] = [data]
-            elif line[0] == 's':
-                line = split_unescaped_colons(line[1:])
-                data = {}
-                data['action'] = 'set'
-                data['offset'] = line[0]
-                # data['parent'] = line[1]
-                data['property_name'] = line[2]
-                data['new_val'] = decode_escape_sequences(line[3])
-                data['new_val'] = re.sub(pattern, '', data['new_val'])
-                data['new_val'] = re.sub(r'[\s\x0B\x0C]+', '', data['new_val'])
-
-                if last_seen_script in granular_info.keys():
-                    granular_info[last_seen_script].append(data)
-                else:
-                    granular_info[last_seen_script] = [data]
-            else:
-                print(f"Invalid character detected in logFile: {log_file_path}")
-                sys.exit(1)
-        except Exception as e:
-            print(f'Exception: {e}')
-            print(f'Line: {line} in logFile: {log_file_path}')
-
-    output_file_path = log_file_path.split('/')[-1] + '.processed'
-    with open(f'./vv8_logs/{args.extn}/{keyword}/{output_file_path}', 'w') as f:
-        write_data = {}
-        write_data['id_to_md5'] = id_to_md5
-        write_data['id_to_script'] = id_to_script
-        write_data['granular_info'] = granular_info
-        json.dump(write_data, f)
-    f.close()
-
-urls = open(args.url, 'r').read().splitlines()
-for url in urls:
-    keyword = ''
-    if 'http' in url:
-        keyword = url.split('://')[1].split('/')[0]
-    else:
-        keyword = url.split('/')[0]
-
-    if 'www' in keyword:
-        keyword = keyword.split('www.')[1]
-    
-    # Example usage
-    log_files = [f for f in os.listdir(f'./vv8_logs/{args.extn}/{keyword}') if f.endswith('.log')]
-    # print(log_files)
-    for log_file in log_files:
-        log_file_path = f'./vv8_logs/{args.extn}/{keyword}/{log_file}'
-        process_log_file(log_file_path, keyword)
+        # Print the results
+        # print(results)
+        # for i, (stdout, stderr) in enumerate(results):
+        #     print(f'Result from worker {i}:')
+        #     print('stdout:', stdout)
+        #     print('stderr:', stderr)
+    except Exception as e:
+        print(e)

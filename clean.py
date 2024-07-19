@@ -55,4 +55,3 @@ if not top_files == '':
         if file[1] < 15:
             continue
         os.system(f'mv {file[0]} vv8_logs/{args.extn}/{keyword}')
-    os.system('rm -rf vv8-*.log')
