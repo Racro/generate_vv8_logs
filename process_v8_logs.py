@@ -6,6 +6,7 @@ import hashlib
 import sys
 import argparse
 import multiprocessing
+import numpy as np
 
 # remove \n from js
 pattern = r'(?<!\\)\\n'
@@ -51,10 +52,42 @@ def beautify_js(js_code):
     # Beautify the JavaScript code
     return jsbeautifier.beautify(js_code)
 
+def find_rogue_files(directory, threshold=0.5):
+    file_sizes = []
+    for filename in os.listdir(directory):
+        if filename.endswith(".log"):
+            file_path = os.path.join(directory, filename)
+            file_size = os.path.getsize(file_path) / (1024 * 1024)  # Convert to MB
+            file_sizes.append((filename, file_size))
+    
+    if not file_sizes:
+        return []
+
+    max_size = max(size for _, size in file_sizes)
+    rogue_threshold = max_size * threshold
+
+    # sizes = np.array([size for _, size in file_sizes])
+    # mean_size = np.mean(sizes)
+    # std_dev = np.std(sizes)
+    # print(mean_size)
+    # print(std_dev)
+    # rogue_files = [(filename, size) for filename, size in file_sizes if size < (mean_size - std_dev)]
+    rogue_files = [(filename, size) for filename, size in file_sizes if size < rogue_threshold]
+    return [t[0] for t in rogue_files]
+
+# def detect_rogue_files_in_directories(directories):
+#     rogue_files_dict = {}
+#     for directory in directories:
+#         rogue_files = find_rogue_files(directory)
+#         if rogue_files:
+#             rogue_files_dict[directory] = rogue_files
+#     return rogue_files_dict
+
 def process_log_file(arguments):
     try:
-        log_file_path, keyword, extn = arguments
+        log_file_path, keyword, extn, url = arguments
         # print(log_file_path, keyword, extn)
+        name_to_src = {}
         id_to_md5 = {}
         id_to_script = {}
         id_to_script['window'] = {}
@@ -99,6 +132,16 @@ def process_log_file(arguments):
                         sid_hash = hashlib.sha256(data['src'].encode('utf-8')).hexdigest()
                     
                     id_to_script[sid_hash] = data
+                    
+                    line[1] = line[1].replace('"', '').replace('\\', '')
+                    if line[1] and line[1] != url.split('#')[0]:
+                        try:
+                            val = int(line[1])
+                        except Exception as e:
+                            if line[1] in name_to_src.keys():
+                                name_to_src[line[1]].append(sid_hash)
+                            else:
+                                name_to_src[line[1]] = [sid_hash]
 
                 elif line[0] == '!':
                     if line[1] == '?':
@@ -175,14 +218,16 @@ def process_log_file(arguments):
                 print(f'Line: {line} in logFile: {log_file_path}')
 
         output_file_path = log_file_path.split('/')[-1] + '.processed'
-        with open(f'./vv8_logs/{extn}/{keyword}/{output_file_path}', 'w') as f:
+        with open(f'./{args.directory}/{extn}/{keyword}/{output_file_path}', 'w') as f:
             write_data = {}
+            write_data['name_to_src'] = name_to_src
             write_data['id_to_md5'] = id_to_md5
             write_data['id_to_script'] = id_to_script
             write_data['granular_info'] = granular_info
             json.dump(write_data, f)
         f.close()
     except Exception as e:
+        print('Exception 2')
         print(e)
         print(arguments)
         return
@@ -191,6 +236,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Get Extension')
     parser.add_argument('--extn', type=str, default='control')
     parser.add_argument('--url', type=str, default='control')
+    parser.add_argument('--directory', type=str, default='control')
     args = parser.parse_args()
 
     urls = open(args.url, 'r').read().splitlines()
@@ -204,14 +250,23 @@ if __name__ == "__main__":
 
         if 'www' in keyword:
             keyword = keyword.split('www.')[1]
-        
-        # Example usage
-        log_files = [f for f in os.listdir(f'./vv8_logs/{args.extn}/{keyword}') if f.endswith('.log')]
-        # print(log_files)
-        for log_file in log_files:
-            log_file_path = f'./vv8_logs/{args.extn}/{keyword}/{log_file}'
-            log_file_pool.append((log_file_path, keyword, args.extn))
-            # process_log_file(log_file_path, keyword)
+
+        try:
+            # Example usage
+            log_files = [f for f in os.listdir(f'./{args.directory}/{args.extn}/{keyword}') if f.endswith('.log')]
+            rogue_files = find_rogue_files(f'./{args.directory}/{args.extn}/{keyword}')
+            # print(keyword, rogue_files)
+            if len(rogue_files) > 3:
+                print(f'Dropping {keyword}: Too many rogue files')
+                continue
+            for log_file in log_files:
+                if log_file in rogue_files:
+                    continue
+                log_file_path = f'./{args.directory}/{args.extn}/{keyword}/{log_file}'
+                log_file_pool.append((log_file_path, keyword, args.extn, url))
+                # process_log_file(log_file_path, keyword)
+        except OSError as e:
+            continue
 
     try:
         # Create a pool of worker processes
@@ -226,5 +281,12 @@ if __name__ == "__main__":
         #     print(f'Result from worker {i}:')
         #     print('stdout:', stdout)
         #     print('stderr:', stderr)
+        for i in results:
+            if i == None:
+                continue
+            # print(f'Result from worker {i}:')
+            print('stdout:', i[0])
+            print('stderr:', i[1])
     except Exception as e:
+        print('Exception 1')
         print(e)

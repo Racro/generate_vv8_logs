@@ -6,13 +6,18 @@ import argparse
 parser = argparse.ArgumentParser(description='Get Extension')
 parser.add_argument('--extn', type=str, default='control')
 parser.add_argument('--site', type=str)
+parser.add_argument('--directory', type=str)
 args = parser.parse_args()
 
 def count_keyword_in_file(file_path, keyword):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        content = file.read()
-    return content.count(keyword)
-
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        return content.count(keyword)
+    except Exception as e:
+        print(e)
+        return 0
+    
 def find_top_file_with_highest_frequency(file_list, keyword):
     # Step 1: Count the keyword occurrences in each file
     file_keyword_counts = []
@@ -48,10 +53,10 @@ if 'www' in keyword:
 top_files = find_top_file_with_highest_frequency(file_list, keyword)
 
 if not top_files == '': 
-    if not os.path.exists(f'vv8_logs/{args.extn}/{keyword}'):
-        os.makedirs(f'vv8_logs/{args.extn}/{keyword}')
+    if not os.path.exists(f'{args.directory}/{args.extn}/{keyword}'):
+        os.makedirs(f'{args.directory}/{args.extn}/{keyword}')
     
     for file in top_files:
         if file[1] < 15:
             continue
-        os.system(f'mv {file[0]} vv8_logs/{args.extn}/{keyword}')
+        os.system(f'mv {file[0]} {args.directory}/{args.extn}/{keyword}')

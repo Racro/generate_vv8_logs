@@ -10,6 +10,21 @@ def divide_chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
+def check_and_kill_chrome():
+    # Check if any Chrome processes are running
+    process_list = os.popen('ps aux').read()
+    chrome_processes = [line for line in process_list.splitlines() if 'chrome' in line]
+    
+    if chrome_processes:
+        print("Chrome processes found. Waiting for 10 seconds...")
+        time.sleep(10)
+        
+        # Kill all Chrome processes
+        os.system('pkill -f chrome')
+        print("Killed all Chrome processes.")
+    else:
+        print("No Chrome processes found.")
+
 def worker(args):
     """Function to execute a.py with given arguments and capture output"""
     script_name = 'check_selector.js'
@@ -46,6 +61,7 @@ def main(extn, url, headless, display):
             results = pool.map(worker, arguments)
             
         # Print the results
+        # print('results: ', url, results)
         for i, (stdout, stderr) in enumerate(results):
             print(f'Result from worker {i}:')
             print('stdout:', stdout)
@@ -57,19 +73,26 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run crawlers in parallel')
     parser.add_argument('--headless', type=str, default='true')
     parser.add_argument('--extn', type=str, default='control')
-    parser.add_argument('--url', type=str)
+    parser.add_argument('--file', type=str, default=None)
+    parser.add_argument('--url', type=str, default=None)
+    parser.add_argument('--directory', type=str, default=None)
     args = parser.parse_args()
 
     xvfb_args = [
-        '-maxclients', '1024'
+        '-maxclients', '2048'
     ]
     vdisplay = Display(backend='xvfb', size=(1920, 1280), extra_args=xvfb_args)
     vdisplay.start()
     display = vdisplay.display
     os.environ['DISPLAY'] = f':{display}'
 
-    SIZE = 2
-    urls = open(args.url, 'r').read().splitlines()
+    SIZE = 1
+    urls = []
+    if args.file != None:
+        urls = open(args.url, 'r').read().splitlines()
+    else:
+        urls = [args.url]
+
     urls = divide_chunks(urls, SIZE)
     for url in urls:
         print(url)
@@ -78,18 +101,35 @@ if __name__ == '__main__':
             p = multiprocessing.Process(target=main, args=(args.extn, item, args.headless, display, ))
             jobs.append(p)
         for job in jobs:
+            print('starting: ', job)
             job.start()
+    
+        TIMEOUT = 120
+        start = time.time()
         for job in jobs:
-            job.join()
+            print(f"joining {job}")
+            job.join(timeout = 60)
+
+            while time.time() - start <= TIMEOUT:
+                if job.is_alive():
+                    time.sleep(5)
+                else:
+                    break
+                
+            if job.is_alive():
+                print('timeout exceeded... terminating job')
+                job.terminate()
         
         time.sleep(2)
         for item in url:
-            os.system(f'python3 clean.py --extn {args.extn} --site {item}')
+            print(f'cleaning: {item}')
+            os.system(f'python3 clean.py --extn {args.extn} --site {item} --directory {args.directory}')
     
         time.sleep(2)
-        os.system('pkill chrome')
         os.system('rm -rf vv8-*.log')
         time.sleep(2)
+
+        # check_and_kill_chrome()
 
     vdisplay.stop()
 

@@ -2,6 +2,7 @@
 **/node_modules
 vv8_logs*
 page_ss
-*.jpg
-*.png
-diff_logs
+diff_logs*
+**/logs*
+vv8.*
+apis

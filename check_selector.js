@@ -12,6 +12,17 @@ const arg_headless = arguments.headless;
 const arg_url = arguments.url;
 const arg_display = arguments.display;
 
+let keyword = '';
+if (arg_url.includes('http')) {
+    keyword = arg_url.split('://')[1].split('/')[0];
+} else {
+    keyword = arg_url.split('/')[0];
+}
+
+if (keyword.includes('www')) {
+    keyword = keyword.split('www.')[1];
+}
+
 // Create a new Xvfb instance
 // const xvfb = new Xvfb({
 //     silent: true,
@@ -141,11 +152,15 @@ if (extn !== 'control'){
 
     // Load and execute the cookies.js script
     const cookiesScript = await loadCookiesScript();
-    const iframes = await page.evaluate(new Function(cookiesScript));
+    try{
+        const iframes = await page.evaluate(new Function(cookiesScript));
 
-    for (let iframe=0; iframe<iframes.length; iframe++){
-        const subframes = await iframes[iframe].evaluate(new Function(cookiesScript));
-        await new Promise(r => setTimeout(r, 2000));
+        for (let iframe=0; iframe<iframes.length; iframe++){
+            const subframes = await iframes[iframe].evaluate(new Function(cookiesScript));
+            await new Promise(r => setTimeout(r, 2000));
+        }
+    } catch(e){
+        console.error(`CMP Banner: ${e}\n`);
     }
     
     await new Promise(r => setTimeout(r, 2000));
@@ -159,12 +174,14 @@ if (extn !== 'control'){
     });
 
     await page.screenshot({
-        path: `screenshot.jpg`
+        path: `page_ss/${extn}_${keyword}.jpg`
     });
 
     // await new Promise(r => setTimeout(r, 5000));
     page.close()
     await browser.close();
+
+    console.log(`\n RETURNING FROM SELECTOR SCRIPT for ${keyword}\n`);
 
     // Stop xvfb
     // xvfb.stopSync();
