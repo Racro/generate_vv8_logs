@@ -6,6 +6,7 @@ import numpy as np
 import re
 import sys
 import re
+import requests
 
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -22,6 +23,7 @@ class SetEncoder(json.JSONEncoder):
 parser = argparse.ArgumentParser(description='Get Extension')
 parser.add_argument('--extn', type=str, default='control')
 parser.add_argument('--url', type=str)
+parser.add_argument('--directory', type=str)
 args = parser.parse_args()
 
 urls = open(args.url, 'r').read().splitlines()
@@ -32,9 +34,32 @@ granular_info_set = {}
 index = {}
 
 # interesting_apis = ['removeItem', 'createTextNode', 'remove', 'removeChild', 'setInterval', 'insertBefore', 'removeEventListener', 'createElement', 'add', 'postMessage', 'about', 'appendChild', 'removeAttribute', 'setTimeout', 'fetch', 'append', 'addEventListener']
-interesting_apis = ['removeItem', 'createTextNode', 'remove', 'removeChild', 'setInterval', 'insertBefore', 'removeEventListener', 'createElement', 'add', 'postMessage', 'about', 'appendChild', 'removeAttribute', 'setTimeout', 'fetch', 'append']
+interesting_apis = ['removeItem', 'createTextNode', 'remove', 'removeChild', 'setInterval', 'insertBefore', 'removeEventListener', 'createElement', 'add', 'postMessage', 'appendChild', 'removeAttribute', 'setTimeout', 'fetch', 'append']
 # actions = ['call', 'set', 'new', 'get']
 actions = ['call']#, 'set', 'new', 'get']
+
+def get_method(src_name_c, offset):
+    # Find method
+    if src_name_c != '':
+        try:
+            response = requests.get(src_name_c)
+            if response.status_code == 200:
+                script_content = response.text
+                if len(script_content) > offset:
+                    return script_content[offset-5:offset+15]
+                else:
+                    print(f'script_content wrong. len(script_content) = {len(script_content)} and offset={offset}')
+                    return ''
+            else:
+                script_content = ''
+                print(f"Failed to retrieve the script. Status code: {response.status_code}")
+                return script_content
+        except requests.exceptions.MissingSchema as e:
+            print('invalid url --> ', src_name_c)
+            return ''
+        except Exception as e:
+            print(e, src_name_c)
+            return ''
 
 def split_unescaped_colons(s):
     # Regular expression pattern to match unescaped colons
@@ -77,21 +102,17 @@ def investigate_apis(keyword, apis_list, src_text):
                 if regex.match(string):
                     func = string.split('%')[1].split(':')[0]
                     if (func, last_seen_script) not in helper_dict.keys():
-                        # print('NO MATCHING SCRIPT!')
-                        # print((func, last_seen_script))
-                        # print(helper_dict.keys())
                         continue
                     offset = int(helper_dict[(func, last_seen_script)][1])
-                    # print(offset)
-                    # print(len(id_to_src[last_seen_script]))
-                    # print(id_to_src[last_seen_script][offset-20:offset+20])
-                    # # print(id_to_src[helper_dict[func][1]])
-                    # sys.exit(0)
+
+                    # get method from src - requests
+                    method = get_method(line[1].replace('\\', '').replace('"', ''), offset)
+
                     try:
                         if keyword in apis:
-                            apis[keyword].append((string, helper_dict[(func, last_seen_script)][0], id_to_src[last_seen_script][offset-20:offset+20]))
+                            apis[keyword].append((string, helper_dict[(func, last_seen_script)][0], id_to_src[last_seen_script][offset-20:offset+20], method))
                         else:
-                            apis[keyword] = [(string, helper_dict[(func, last_seen_script)][0], id_to_src[last_seen_script][offset-20:offset+20])]
+                            apis[keyword] = [(string, helper_dict[(func, last_seen_script)][0], id_to_src[last_seen_script][offset-20:offset+20], method)]
                         
                         break
                     except Exception as e:
@@ -118,11 +139,11 @@ for url in urls:
         keyword = keyword.split('www.')[1]
 
     try:
-        b = json.load(open(f'diff_logs_no_inline/ctrl_{args.extn}_{keyword}.json', 'r'))
-        a = json.load(open(f'diff_logs_no_inline/{args.extn}_ctrl_{keyword}.json', 'r'))
+        b = json.load(open(f'{args.directory}_diff/ctrl_{args.extn}_{keyword}.json', 'r'))
+        a = json.load(open(f'{args.directory}_diff/{args.extn}_ctrl_{keyword}.json', 'r'))
         # src_file = json.load(open(f'vv8.run1/{args.extn}/{keyword}/intersection.json', 'r'))
 
-        path = f'./vv8_logs/{args.extn}/{keyword}/'
+        path = f'../generate_vv8_logs_{args.extn}/{args.directory}/{args.extn}/{keyword}/'
         log_file = [f for f in os.listdir(path) if f.endswith('.log')][0]
         src_text = open(f'{path}/{log_file}', 'r').read().splitlines()
         
@@ -142,6 +163,7 @@ for url in urls:
     # DIFF of all sites
     ## scripts
     tuples = []
+    # print('keys = ', len(a['id_to_script'].keys()))
     for key in a['id_to_script'].keys():
         if key in index.keys():
             index[key].append(keyword)
@@ -200,6 +222,10 @@ for url in urls:
         for key in a['granular_info'].keys():
             try:
                 src_name = src_dict['id_to_script'][key]['src_name']
+                
+                # for fetching via requests 
+                src_name_c = src_name.replace('\\', '').replace('"', '')
+                
                 src = src_dict['id_to_script'][key]['src']
             except Exception as e:
                 print(e, key)
@@ -212,6 +238,7 @@ for url in urls:
                     if str(action_elem[0]) == f"['action', '{action}']":
                         func = action_elem[2][1][1:]
                         offset = action_elem[1][1]
+
                         if func in interesting_apis:
                             # FIND ID FROM KEY(md5)
                             id1 = ''
@@ -223,6 +250,10 @@ for url in urls:
 
                             # print(func)
                             apis_list.append((func, offset, key, id1))
+                            # if len(script_content) > offset:
+                            #     apis_list.append((func, offset, key, id1, script_content[offset-5:offset+15]))
+                            # else:
+                            #     apis_list.append((func, offset, key, id1, ''))
                         # if 'setTimeout' in func:
                         #     print(src_dict['id_to_script'][key]['src_name'])
                         if func in functions[f'{action}']:
@@ -238,6 +269,8 @@ for url in urls:
     # print(apis_list)
     if apis_list != []:
         investigate_apis(keyword, apis_list, src_text)
+    else:
+        print('apis_list is empty!')
 
     granular_info_set[keyword] = [count, functions]
 
@@ -254,7 +287,7 @@ result['superset'] = sorted(super_script_set, key=lambda x: x[1])
 result['subset'] = sorted(sub_script_set, key=lambda x: x[1])
 result['granular_info'] = granular_info_set
 
-with open('investigate_scripts_no_inline.json', 'w') as f:
+with open('investigate_scripts_{args.directory}.json', 'w') as f:
     json.dump(result, f, cls=SetEncoder)
 f.close()
 
