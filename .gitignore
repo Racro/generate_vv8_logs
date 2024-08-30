@@ -5,4 +5,6 @@ page_ss
 diff_logs*
 **/logs*
 vv8.*
-apis
+apis*
+log_*
+plots*
