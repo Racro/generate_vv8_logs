@@ -126,7 +126,7 @@ if __name__ == '__main__':
             os.system(f'python3 clean.py --extn {args.extn} --site {item} --directory {args.directory}')
     
         time.sleep(2)
-        os.system('rm -rf vv8-*.log')
+        os.system('rm -rf vv8-*')
         time.sleep(2)
 
         # check_and_kill_chrome()
