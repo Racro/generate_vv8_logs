@@ -63,8 +63,7 @@
         "https://filterlists.com/*",
         "https://forums.lanik.us/*",
         "https://github.com/*",
-        "https://*.github.io/*",
-        "https://*.letsblock.it/*"
+        "https://*.github.io/*"
       ],
       "run_at": "document_idle"
     },
@@ -114,7 +113,7 @@
   "storage": {
     "managed_schema": "managed_storage.json"
   },
-  "version": "1.57.0",
+  "version": "1.58.0",
   "web_accessible_resources": [
     "/web_accessible_resources/*"
   ]

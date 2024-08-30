@@ -26,12 +26,12 @@ sleep 5
 
 # sleep 5
 
-python3 process_v8_logs.py --extn $1 --url $URL --directory $3
+python3 process_v8_logs.py --extn $1 --url $2 --directory $3
 # # python3 process_v8_logs.py --extn ublock --url $URL
 
 sleep 5
 
-python3 intersection.py --extn $1 --url $URL --directory $3
+python3 intersection.py --extn $1 --url $2 --directory $3
 # python3 intersection.py --extn ublock --url $URL
 
 # sleep 5

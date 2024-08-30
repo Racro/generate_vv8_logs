@@ -6,6 +6,7 @@ import numpy as np
 import re
 import sys
 import re
+import requests
 
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -35,6 +36,22 @@ index = {}
 interesting_apis = ['removeItem', 'createTextNode', 'remove', 'removeChild', 'setInterval', 'insertBefore', 'removeEventListener', 'createElement', 'add', 'postMessage', 'about', 'appendChild', 'removeAttribute', 'setTimeout', 'fetch', 'append']
 # actions = ['call', 'set', 'new', 'get']
 actions = ['call']#, 'set', 'new', 'get']
+
+def get_method(src_name_c, offset):
+    # Find method
+    if src_name_c != '':
+        response = requests.get(src_name_c)
+        if response.status_code == 200:
+            script_content = response.text
+            if len(script_content) > offset:
+                return script_content[offset-5:offset+15]
+            else:
+                print(f'script_content wrong. len(script_content) = {len(script_content)} and offset={offset}')
+                return ''
+        else:
+            script_content = ''
+            print(f"Failed to retrieve the script. Status code: {response.status_code}")
+            return script_content
 
 def split_unescaped_colons(s):
     # Regular expression pattern to match unescaped colons
@@ -77,21 +94,17 @@ def investigate_apis(keyword, apis_list, src_text):
                 if regex.match(string):
                     func = string.split('%')[1].split(':')[0]
                     if (func, last_seen_script) not in helper_dict.keys():
-                        # print('NO MATCHING SCRIPT!')
-                        # print((func, last_seen_script))
-                        # print(helper_dict.keys())
                         continue
                     offset = int(helper_dict[(func, last_seen_script)][1])
-                    # print(offset)
-                    # print(len(id_to_src[last_seen_script]))
-                    # print(id_to_src[last_seen_script][offset-20:offset+20])
-                    # # print(id_to_src[helper_dict[func][1]])
-                    # sys.exit(0)
+
+                    # get method from src - requests
+                    method = get_method(line[0].replace('\\', '').replace('"', ''), offset)
+
                     try:
                         if keyword in apis:
-                            apis[keyword].append((string, helper_dict[(func, last_seen_script)][0], id_to_src[last_seen_script][offset-20:offset+20]))
+                            apis[keyword].append((string, helper_dict[(func, last_seen_script)][0], id_to_src[last_seen_script][offset-20:offset+20], method))
                         else:
-                            apis[keyword] = [(string, helper_dict[(func, last_seen_script)][0], id_to_src[last_seen_script][offset-20:offset+20])]
+                            apis[keyword] = [(string, helper_dict[(func, last_seen_script)][0], id_to_src[last_seen_script][offset-20:offset+20], method)]
                         
                         break
                     except Exception as e:
@@ -200,6 +213,10 @@ for url in urls:
         for key in a['granular_info'].keys():
             try:
                 src_name = src_dict['id_to_script'][key]['src_name']
+                
+                # for fetching via requests 
+                src_name_c = src_name.replace('\\', '').replace('"', '')
+                
                 src = src_dict['id_to_script'][key]['src']
             except Exception as e:
                 print(e, key)
@@ -212,6 +229,7 @@ for url in urls:
                     if str(action_elem[0]) == f"['action', '{action}']":
                         func = action_elem[2][1][1:]
                         offset = action_elem[1][1]
+
                         if func in interesting_apis:
                             # FIND ID FROM KEY(md5)
                             id1 = ''
@@ -223,6 +241,10 @@ for url in urls:
 
                             # print(func)
                             apis_list.append((func, offset, key, id1))
+                            # if len(script_content) > offset:
+                            #     apis_list.append((func, offset, key, id1, script_content[offset-5:offset+15]))
+                            # else:
+                            #     apis_list.append((func, offset, key, id1, ''))
                         # if 'setTimeout' in func:
                         #     print(src_dict['id_to_script'][key]['src_name'])
                         if func in functions[f'{action}']:
@@ -238,6 +260,8 @@ for url in urls:
     # print(apis_list)
     if apis_list != []:
         investigate_apis(keyword, apis_list, src_text)
+    else:
+        print('apis_list is empty!')
 
     granular_info_set[keyword] = [count, functions]
 

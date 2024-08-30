@@ -22,6 +22,8 @@ def find_top_file_with_highest_frequency(file_list, keyword):
     # Step 1: Count the keyword occurrences in each file
     file_keyword_counts = []
     for file_path in file_list:
+        if 'ServiceWorker' in file_path:
+            continue
         count = count_keyword_in_file(file_path, keyword)
         file_keyword_counts.append((file_path, count))
     

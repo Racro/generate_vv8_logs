@@ -113,7 +113,11 @@ if __name__ == "__main__":
     parser.add_argument('--directory', type=str, default='control')
     args = parser.parse_args()
 
-    urls = open(args.url, 'r').read().splitlines()
+    if args.url.endswith(".txt"):
+        urls = open(args.url, 'r').read().splitlines()
+    else:
+        urls = [args.url]
+        
     arguments = []
     for url in urls:
         keyword = ''
