@@ -3,6 +3,9 @@
 vv8_logs*
 page_ss
 diff_logs*
-**/logs*
+**/log*
 vv8.*
 apis
+**/*.txt
+**/*.json
+**/*.jpg
