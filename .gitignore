@@ -9,3 +9,4 @@ vv8.*
 **/*.json
 **/*.jpg
 apis*
+**/extn_src
