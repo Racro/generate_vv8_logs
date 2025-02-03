@@ -91,14 +91,16 @@ def process_log_file(arguments):
         id_to_md5 = {}
         id_to_script = {}
         id_to_script['window'] = {}
-
         granular_info = {}
+
+        cfg = [] ###
         
         # Read the log file
         with open(log_file_path, 'r') as file:
             lines = file.readlines()
 
         last_seen_script = 0
+        last_seen_api_calls = [] ###
         for line in lines:
             if line[-1] == '\n':
                 line = line[:-1]
@@ -147,6 +149,9 @@ def process_log_file(arguments):
                     if line[1] == '?':
                         last_seen_script = '?'
                     else:
+                        cfg.append((last_seen_script, hashlib.sha256(str(last_seen_api_calls).encode('utf-8')).hexdigest())) ###
+                        last_seen_api_calls = [] ###
+                        
                         last_seen_script = id_to_md5[line[1:]]
                 
                 elif line[0] == 'c':
@@ -156,6 +161,8 @@ def process_log_file(arguments):
                     data['action'] = 'call'
                     data['offset'] = line[0]
                     data['func_name'] = line[1]
+
+                    last_seen_api_calls.append(line) ###
                     # data['receiver'] = line[2]
                     # if (len(line) > 3):
                     #     data['script'] = decode_escape_sequences(line[3])
@@ -176,6 +183,8 @@ def process_log_file(arguments):
                     data['action'] = 'new'
                     data['offset'] = line[0]
                     data['func_name'] = line[1]
+
+                    last_seen_api_calls.append(line) ###
                     # if (len(line) > 2):
                     #     # print(f'the function call log (nXXX) has more fields: {len(line)}')
                     #     data['rest'] = line[2]   
@@ -190,6 +199,8 @@ def process_log_file(arguments):
                     data['offset'] = line[0]
                     # data['parent'] = line[1]
                     data['property_name'] = line[2]
+
+                    last_seen_api_calls.append(line) ###
                 
                     if last_seen_script in granular_info.keys():
                         granular_info[last_seen_script].append(data)
@@ -205,6 +216,8 @@ def process_log_file(arguments):
                     data['new_val'] = decode_escape_sequences(line[3])
                     data['new_val'] = re.sub(pattern, '', data['new_val'])
                     data['new_val'] = re.sub(r'[\s\x0B\x0C]+', '', data['new_val'])
+
+                    last_seen_api_calls.append(line) ###
 
                     if last_seen_script in granular_info.keys():
                         granular_info[last_seen_script].append(data)
@@ -226,6 +239,8 @@ def process_log_file(arguments):
             write_data['granular_info'] = granular_info
             json.dump(write_data, f)
         f.close()
+
+        json.dump(cfg, open(f'./{args.directory}/{extn}/{keyword}/{output_file_path}.cfg', 'w')) ###
     except Exception as e:
         print('Exception 2')
         print(e)

@@ -38,6 +38,31 @@ interesting_apis = ['removeItem', 'createTextNode', 'remove', 'removeChild', 'se
 # actions = ['call', 'set', 'new', 'get']
 actions = ['call']#, 'set', 'new', 'get']
 
+def check_if_ad(url, resource):
+    original_directory = os.getcwd()
+    target_directory = '/root/breakages/Ad-BlockerResearch/2. Resources (js)/blacklist_parser'
+
+    try:
+        # Change to the target directory
+        os.chdir(target_directory)
+        print(f"Changed to directory: {os.getcwd()}")
+
+        # Run the Node.js script
+        result = subprocess.run(['node', 'mytest.js', '--url', url, '--resource', resource], capture_output=True, text=True, check=True)
+
+        os.chdir(original_directory)
+        print(f"Returned to original directory: {os.getcwd()}")
+
+        # print(result.stdout)
+        if result.stdout == '':
+            return False
+        else:
+            return True
+
+    except Exception as e:
+        print(f"Error in check_ad: {e}")
+        return False
+
 def get_method(src_name_c, offset):
     # Find method
     if src_name_c != '':
@@ -154,11 +179,6 @@ for url in urls:
     except Exception as e:
         print('Exception2: ', e)
         continue
-    
-    ## NAME TO SRC
-    # for key in a['name_to_src']:
-    #     if key
-    # if a['name_to_src'] 
 
     # DIFF of all sites
     ## scripts
@@ -175,7 +195,7 @@ for url in urls:
         src_name_c = src_name.replace('\\', '').replace('"', '')
         url_c = url
         if '#' in url:
-            urls_c = url.split('#')[0] 
+            url_c = url.split('#')[0] 
         url_c2 = url_c.replace('www.', '')
 
         if src_name_c == url_c or src_name_c == url_c2:
@@ -230,7 +250,7 @@ for url in urls:
             except Exception as e:
                 print(e, key)
                 continue
-            if re.search(pattern_all, src_name) or '/web_accessible_resources' in src or 'uBlockOrigin-abrowserextensiontoblockrequests' in src:
+            if check_if_ad(url, src_name) or re.search(pattern_all, src_name) or '/web_accessible_resources' in src or 'uBlockOrigin-abrowserextensiontoblockrequests' in src:
                 # print(src_name)
                 continue
             for action_elem in a['granular_info'][key]:
@@ -277,19 +297,19 @@ for url in urls:
 
     # INTERSECTION of all sites
 
-result = {}
-result['index'] = index
+# result = {}
+# result['index'] = index
 
-super_script_set = list(super_script_set)
-sub_script_set = list(sub_script_set)
+# super_script_set = list(super_script_set)
+# sub_script_set = list(sub_script_set)
 
-result['superset'] = sorted(super_script_set, key=lambda x: x[1])
-result['subset'] = sorted(sub_script_set, key=lambda x: x[1])
-result['granular_info'] = granular_info_set
+# result['superset'] = sorted(super_script_set, key=lambda x: x[1])
+# result['subset'] = sorted(sub_script_set, key=lambda x: x[1])
+# result['granular_info'] = granular_info_set
 
-with open('investigate_scripts_{args.directory}.json', 'w') as f:
-    json.dump(result, f, cls=SetEncoder)
-f.close()
+# with open('investigate_scripts_{args.directory}.json', 'w') as f:
+#     json.dump(result, f, cls=SetEncoder)
+# f.close()
 
     # # number of each calls
     # count = {}

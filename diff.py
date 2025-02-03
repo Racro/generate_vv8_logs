@@ -2,6 +2,7 @@ import json
 import numpy as np
 import re
 import argparse
+import os 
 
 parser = argparse.ArgumentParser(description='Get Extension')
 parser.add_argument('--extn', type=str, default='control')
@@ -67,7 +68,7 @@ for url in urls:
 
     try:
         ctrl = json.load(open(f'./{args.directory}/control/{keyword}/intersection.json', 'r'))
-        adb = json.load(open(f'./{args.directory}/{args.extn}/{keyword}/intersection.json', 'r'))
+        adb = json.load(open(f'../generate_vv8_logs_{args.extn}/{args.directory}/{args.extn}/{keyword}/intersection.json', 'r'))
         
         # for key in ctrl['granular_info'].keys():
         #     for i in range(len(ctrl['granular_info'][key])):
@@ -109,14 +110,16 @@ for url in urls:
         #                 if found:
         #                     adb['granular_info'][key][i][j] = ["rest", f"{{1,{strr}}}"]
 
-        ctrl_n2s = {}
-        adb_n2s = {}
-        for key in ctrl['name_to_src']:
-            if len(ctrl['name_to_src'][key]) > 1:
-                ctrl_n2s[key] = ctrl['name_to_src'][key]
-        for key in adb['name_to_src']:
-            if len(adb['name_to_src'][key]) > 1:
-                adb_n2s[key] = adb['name_to_src'][key]
+
+        ### NOT SURE WHAT THIS PIECE OF CODE WAS DOING
+        # ctrl_n2s = {}
+        # adb_n2s = {}
+        # for key in ctrl['name_to_src']:
+        #     if len(ctrl['name_to_src'][key]) > 1:
+        #         ctrl_n2s[key] = ctrl['name_to_src'][key]
+        # for key in adb['name_to_src']:
+        #     if len(adb['name_to_src'][key]) > 1:
+        #         adb_n2s[key] = adb['name_to_src'][key]
 
         ctrl_adb = {}
         adb_ctrl = {}
@@ -126,10 +129,12 @@ for url in urls:
         ctrl_granular_set = set(ctrl['granular_info'].keys())
         adb_granular_set = set(adb['granular_info'].keys())
 
-        ctrl_adb['name_to_src'] = ctrl_n2s
+        # ctrl_adb['name_to_src'] = ctrl_n2s
+        ctrl_adb['name_to_src'] = ctrl['name_to_src']
         ctrl_adb['id_to_script'] = {}
         ctrl_adb['granular_info'] = {}
-        adb_ctrl['name_to_src'] = adb_n2s
+        # adb_ctrl['name_to_src'] = adb_n2s
+        adb_ctrl['name_to_src'] = adb['name_to_src']
         adb_ctrl['id_to_script'] = {}
         adb_ctrl['granular_info'] = {}
         
@@ -168,8 +173,10 @@ for url in urls:
                 continue
             adb_ctrl['granular_info'][key] = diff
 
-        json.dump(ctrl_adb, open(f'ctrl_{args.extn}_{keyword}.json', 'w'), cls=SetEncoder)
-        json.dump(adb_ctrl, open(f'{args.extn}_ctrl_{keyword}.json', 'w'), cls=SetEncoder)
+        if not os.path.exists(f'{args.directory}_diff'):
+            os.makedirs(f'{args.directory}_diff')
+        json.dump(ctrl_adb, open(f'{args.directory}_diff/ctrl_{args.extn}_{keyword}.json', 'w'), cls=SetEncoder)
+        json.dump(adb_ctrl, open(f'{args.directory}_diff/{args.extn}_ctrl_{keyword}.json', 'w'), cls=SetEncoder)
     except OSError as e:
         continue
     except Exception as e:

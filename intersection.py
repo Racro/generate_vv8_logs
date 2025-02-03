@@ -80,24 +80,27 @@ def main(arguments):
         for key in common_script_set:
             intersection_dict['id_to_script'][key] = base['id_to_script'][key]
 
+        print('*'*50)
+
         for log_file in log_files[1:]:
             log_file_path = f'./{args.directory}/{extn}/{keyword}/{log_file}'
             next = json.load(open(log_file_path, 'r'))
             for key in granular_info_set:
                 if key not in common_script_set:
                     print(f"{keyword} - {key} - WEIRD OBSERVATION!")
-                    # print(master[0]['granular_info'][key])
-                    # continue
-
+                if key not in next['granular_info'].keys():
+                    print('key missing but that\'s expected')
+                    continue
+                
                 set_of_dicts = set()
                 for d in base['granular_info'][key]:
                     set_of_dicts.add(tuple(d.items()))
                 intersection_dict['granular_info'][key] = set_of_dicts
-                    
-                set_of_dicts = set()
+
+                set_of_dicts_temp = set()
                 for d in next['granular_info'][key]:
-                    set_of_dicts.add(tuple(d.items()))
-                intersection_dict['granular_info'][key] = intersection_dict['granular_info'][key] & set_of_dicts
+                    set_of_dicts_temp.add(tuple(d.items()))
+                intersection_dict['granular_info'][key] = intersection_dict['granular_info'][key] & set_of_dicts_temp
 
         json.dump(intersection_dict, open(f'./{args.directory}/{extn}/{keyword}/intersection.json', 'w'), cls=SetEncoder)
     except OSError as e:
@@ -132,7 +135,7 @@ if __name__ == "__main__":
 
     try:
         # Create a pool of worker processes
-        with multiprocessing.Pool() as pool:
+        with multiprocessing.Pool(processes=10) as pool:
             # Map the worker function to the arguments
             results = pool.map(main, arguments)
             
