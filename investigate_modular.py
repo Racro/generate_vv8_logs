@@ -185,6 +185,7 @@ def investigate_granular_scripts(directory, extn):
 
     # granular_scripts = {category: 0 for category in api_categories}
     granular_scripts = defaultdict(int)
+    granular_scripts['set'] = defaultdict(int)
 
     for f in diff_files:
         a = FileHandler.load_json(f)
@@ -192,15 +193,20 @@ def investigate_granular_scripts(directory, extn):
             for key, items in a['granular_info'].items():
                 for api in items:
                     if api[0][1] == 'set':
-                        granular_scripts[f'set_{api[2][1]}'] += 1
+                        granular_scripts['set'][api[2][1].strip('\"\\')] += 1
                     elif api[0][1] == 'call':
                         api_call = api[2][1].split('%')[-1]
                         # Check each category to see if this API is included.
+                        check = 0
                         for category, apis in api_categories.items():
                             if api_call in apis:
                                 granular_scripts[category] += 1
                                 # Assuming each API belongs to only one category, we can break here.
+                                check = 1
                                 break
+                        if check == 0:
+                            granular_scripts['Others'] += 1
+                        
         except Exception as e:
             print(e, len(a['granular_info']), f, granular_scripts.keys())
             sys.exit(0)
@@ -655,10 +661,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # investigate_new_scripts(args.directory, args.extn)
-    # investigate_granular_scripts(args.directory, args.extn)
+    investigate_granular_scripts(args.directory, args.extn)
     # identify_script_categories()
-    find_script_utility()
-    process_script_utility()
+    # find_script_utility()
+    # process_script_utility()
 
     # investigator = APIInvestigator(args.extn, args.url, args.directory)
     # investigator.process_urls()
