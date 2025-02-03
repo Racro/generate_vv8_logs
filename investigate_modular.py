@@ -14,6 +14,120 @@ import requests
 from json.decoder import JSONDecodeError
 from collections import defaultdict
 
+api_categories = {
+    "Data Manipulation": [
+        "removeItem",
+        "FileReader",
+        "FileSystem",
+        "IndexedDB",
+        "localStorage",
+        "sessionStorage",
+        "Clipboard API",
+        "ReadableStream",
+        "WritableStream"
+    ],
+    "DOM Manipulation": [
+        "createElement",
+        "createTextNode",
+        "appendChild",
+        "append",              # Modern DOM method for appending nodes or strings
+        "removeChild",
+        "insertBefore",
+        "remove",
+        "removeAttribute",
+        "querySelector",
+        "querySelectorAll",
+        "getElementById",
+        "setAttribute",
+        "getAttribute",
+        "classList",
+        "innerHTML",
+        "textContent",
+        "MutationObserver",
+        "ResizeObserver"
+    ],
+    "Asynchronous & Network Operations": [
+        "setTimeout",
+        "setInterval",
+        "Promise",
+        "async",
+        "await",
+        "postMessage",
+        "XMLHttpRequest",
+        "fetch",
+        "WebSocket",
+        "ServiceWorker",
+        "CacheStorage",
+        "navigator.sendBeacon",
+        "fetchEvent",
+        "Notification",
+        "BackgroundSync",
+        "ServerSentEvents"
+    ],
+    "Mathematical & Algorithmic Functions": [
+        "Math",
+        "Intl.Collator",
+        "Intl.DateTimeFormat",
+        "Intl.NumberFormat",
+        "Crypto",
+        "crypto.getRandomValues",
+        "TextEncoder",
+        "TextDecoder"
+    ],
+    "User Interaction": [
+        "addEventListener",
+        "removeEventListener",
+        "PointerEvent",
+        "MouseEvent",
+        "KeyboardEvent",
+        "TouchEvent",
+        "FocusEvent",
+        "Gamepad",
+        "ScreenOrientation",
+        "SpeechRecognition",
+        "SpeechSynthesis"
+    ],
+    "Utility Functions": [
+        "performance.now",
+        "performance.mark",
+        "performance.measure",
+        "navigator.storage.estimate",
+        "PageVisibility",
+        "BatteryManager",
+        "DeviceMemory",
+        "NetworkInformation"
+    ],
+    "Higher-Order & Functional Programming": [
+        "Promise.all",
+        "Promise.race",
+        "Array.prototype.map",
+        "Array.prototype.reduce",
+        "Array.prototype.filter",
+        "Array.prototype.forEach",
+        "GeneratorFunction",
+        "SharedArrayBuffer",
+        "Atomics",
+        "add"  # if referring to e.g. Set.prototype.add
+    ],
+    "Other / Miscellaneous": [
+        "CanvasRenderingContext2D",
+        "WebGLRenderingContext",
+        "WebGPU",
+        "AudioContext",
+        "MediaStream",
+        "MediaSource",
+        "Presentation",
+        "WebXR",
+        "PictureInPicture",
+        "DevicePosture",
+        "NFC",
+        "Bluetooth",
+        "USB",
+        "Serial",
+        "HID"
+    ]
+}
+
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, set):
@@ -50,7 +164,7 @@ class FileHandler:
             print(f"File not found: {filepath}")
             return []
 
-def investigate_scripts(directory, extn):
+def investigate_new_scripts(directory, extn):
     diff_files = [f'{directory}_diff/{f}' for f in os.listdir(f'{directory}_diff') if f.startswith(extn)]
 
     new_scripts = {}
@@ -65,6 +179,32 @@ def investigate_scripts(directory, extn):
             print(e, len(a['id_to_script']), f, new_scripts.keys())
             sys.exit(0)
     FileHandler.save_json(new_scripts, 'analysis_json/new_scripts.json')
+
+def investigate_granular_scripts(directory, extn):
+    diff_files = [f'{directory}_diff/{f}' for f in os.listdir(f'{directory}_diff') if f.startswith(extn)]
+
+    # granular_scripts = {category: 0 for category in api_categories}
+    granular_scripts = defaultdict(int)
+
+    for f in diff_files:
+        a = FileHandler.load_json(f)
+        try:
+            for key, items in a['granular_info'].items():
+                for api in items:
+                    if api[0][1] == 'set':
+                        granular_scripts[f'set_{api[2][1]}'] += 1
+                    elif api[0][1] == 'call':
+                        api_call = api[2][1].split('%')[-1]
+                        # Check each category to see if this API is included.
+                        for category, apis in api_categories.items():
+                            if api_call in apis:
+                                granular_scripts[category] += 1
+                                # Assuming each API belongs to only one category, we can break here.
+                                break
+        except Exception as e:
+            print(e, len(a['granular_info']), f, granular_scripts.keys())
+            sys.exit(0)
+    FileHandler.save_json(granular_scripts, 'analysis_json/granular_scripts_count.json')
 
 def identify_script_categories():
     cats = []
@@ -111,7 +251,7 @@ def find_script_utility():
                     {
                         "role": "user",
                         "content": 
-                            f"""Classify the given JavaScript into one or more of the seven categories based on following data and return a dictionary in JSON compatible FORMAT:
+                            f"""Classify the given JavaScript into one or more of the seven categories based on following data and return a dictionary in JSON compatible FORMAT with explanations of its functionality:
                             ##
                             SOURCE URL - {i[0]}
                             ##
@@ -122,7 +262,7 @@ def find_script_utility():
                         "role": "system",
                         "content": 
                             """
-                            You are an expert at analyzing JavaScript files based on both their public source URL and the provided source code. In case source URL is not present or clear, resort to source code based analysis. Your task is to classify each JavaScript instance into one or more of the predefined categories. Return a list of all categories that can be found in the script. If none of the categories fit, classify it under "Others," which covers topics outside the first seven categories.
+                            You are an expert at analyzing JavaScript files based on both their public source URL and the provided source code. In case source URL is not present or clear, resort to source code based analysis. Your task is to classify each JavaScript instance into one or more of the predefined categories. Also provide verbose explanation of what the script does to the extent possible. Return a list of all categories that can be found in the script. If none of the categories fit, classify it under "Others," which covers topics outside the first seven categories.
 
                             The eight categories are:  
                             ### 1. Data Manipulation
@@ -181,7 +321,6 @@ def find_script_utility():
                             ---
                             
                             ### 8. Others
-
                             **Definition:** Covers specialized or advanced tasks not fitting neatly in the categories above.
 
                             - **Workers & Service Workers: Off-main-thread processing, background sync, offline caching.
@@ -218,7 +357,7 @@ def find_script_utility():
 
                             ### Output format:
                             {'categories': [Category1, Category2, ...], 'explanations': explanation}
-                            Please don't output any supporting, formatting or explanatory text apart from the dictionary. Return a dictionary of all categories found with explanation in JSON compatible FORMAT.
+                            Please don't output any supporting, formatting or explanatory text apart from the dictionary. Return a dictionary of all categories found with verbose explanation of the script functionality in JSON compatible FORMAT.
                             """
                     },
                 ],
@@ -249,7 +388,7 @@ def find_script_utility():
                 print(e, cat)
         except Exception as e:
             print(f"Error processing batch: {e}")
-            llm_cats.append(None)
+            # llm_cats.append(None)
 
         FileHandler.save_json(llm_cats, 'llm_script_categories.json')
 
@@ -515,9 +654,10 @@ if __name__ == "__main__":
     parser.add_argument('--directory', type=str)
     args = parser.parse_args()
 
-    # investigate_scripts(args.directory, args.extn)
+    # investigate_new_scripts(args.directory, args.extn)
+    # investigate_granular_scripts(args.directory, args.extn)
     # identify_script_categories()
-    # find_script_utility()
+    find_script_utility()
     process_script_utility()
 
     # investigator = APIInvestigator(args.extn, args.url, args.directory)
