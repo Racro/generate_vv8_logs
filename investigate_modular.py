@@ -184,8 +184,9 @@ def investigate_granular_scripts(directory, extn):
     diff_files = [f'{directory}_diff/{f}' for f in os.listdir(f'{directory}_diff') if f.startswith(extn)]
 
     # granular_scripts = {category: 0 for category in api_categories}
-    granular_scripts = defaultdict(int)
+    granular_scripts = {}
     granular_scripts['set'] = defaultdict(int)
+    granular_scripts['call'] = defaultdict(int)
 
     for f in diff_files:
         a = FileHandler.load_json(f)
@@ -200,12 +201,12 @@ def investigate_granular_scripts(directory, extn):
                         check = 0
                         for category, apis in api_categories.items():
                             if api_call in apis:
-                                granular_scripts[category] += 1
+                                granular_scripts['call'][category] += 1
                                 # Assuming each API belongs to only one category, we can break here.
                                 check = 1
                                 break
                         if check == 0:
-                            granular_scripts['Others'] += 1
+                            granular_scripts['call']['Others'] += 1
                         
         except Exception as e:
             print(e, len(a['granular_info']), f, granular_scripts.keys())
@@ -234,7 +235,7 @@ def identify_script_categories():
     FileHandler.save_json(cats, 'analysis_json/script_categories.json') 
 
 def find_script_utility():
-    cats = FileHandler.load_json('script_categories.json')
+    cats = FileHandler.load_json('analysis_json/script_categories.json')
     llm_cats = {'categories': [], 'explanations': []}
 
     api_key = os.getenv("OPENAI_KEY")
@@ -396,17 +397,17 @@ def find_script_utility():
             print(f"Error processing batch: {e}")
             # llm_cats.append(None)
 
-        FileHandler.save_json(llm_cats, 'llm_script_categories.json')
+        FileHandler.save_json(llm_cats, 'analysis_json/llm_script_categories.json')
 
 def process_script_utility():
-    a = FileHandler.load_json('llm_script_categories.json')
+    a = FileHandler.load_json('analysis_json/llm_script_categories.json')
     cat_count = defaultdict(int)
 
     for lst in a['categories']:
         for cat in lst:
             cat_count[cat] += 1
 
-    FileHandler.save_json(cat_count, 'llm_script_categories_count.json')
+    FileHandler.save_json(cat_count, 'analysis_json/llm_script_categories_count.json')
 
 
 class ScriptProcessor:
@@ -661,10 +662,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # investigate_new_scripts(args.directory, args.extn)
-    investigate_granular_scripts(args.directory, args.extn)
+    # investigate_granular_scripts(args.directory, args.extn)
     # identify_script_categories()
     # find_script_utility()
-    # process_script_utility()
+    process_script_utility()
 
     # investigator = APIInvestigator(args.extn, args.url, args.directory)
     # investigator.process_urls()
