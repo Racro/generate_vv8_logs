@@ -311,128 +311,120 @@ def find_script_utility():
 
     for i in cats:
         try:
+            system_prompt = """
+                You are an expert JavaScript analyst. You must classify the code under these categories:
+                    ## 1. Data Manipulation & Processing  
+                    *Definition:* Involves creating, transforming, and interpreting data structures (arrays, strings, objects), as well as mathematical and algorithmic operations.  
+                    * `Arrays:` Filtering, mapping, reducing (`filter`, `map`, `reduce`).  
+                    * `Strings:` Extracting and replacing segments (`substring`, `replace`).  
+                    * `Objects:` Merging, copying, enumerating keys (`Object.assign`, `Object.keys`).  
+                    * `Mathematical Functions:` Built-in math methods (`Math.sqrt`, `Math.random`, `Math.round`).  
+                    * `Custom Algorithms:` Advanced numeric or data-structure logic (e.g., custom sorting).  
+                    * `State Management:` Managing application state (e.g., Redux, Vuex, `localStorage`, `sessionStorage`).  
+                    
+                    ---
+
+                    ## 2. DOM Manipulation & Rendering  
+                    *Definition:* Focuses on altering or interacting with the web page’s structure and style, including performance optimizations.  
+                    * `Adding/Removing Elements:` `appendChild`, `removeChild`.  
+                    * `Modifying Styles:` `style.backgroundColor`, `classList.add`.  
+                    * `Event Handling:` `addEventListener`, `removeEventListener` to respond to user actions.  
+                    * `Performance Optimizations:` Lazy loading, virtual DOM, rendering optimizations.  
+                    
+                    ---
+
+                    ## 3. Asynchronous Operations & Network Communication  
+                    *Definition:* Covers code that runs outside the normal synchronous flow, often involving server communication and third-party integrations.  
+                    * `Fetching Data:` `fetch`, `XMLHttpRequest`, Axios.  
+                    * `Promises & Async/Await:` `then`, `catch`, `finally`, `async/await`.  
+                    * `Timers:` `setTimeout`, `setInterval` for scheduled tasks.  
+                    * `Third-Party Integrations:` Google Analytics, payment gateways, social media widgets.  
+                    
+                    ---
+
+                    ## 4. User Interaction & Event Handling  
+                    *Definition:* Handles direct actions from users and visual/interactive responses, including accessibility features.  
+                    * `Event Listeners:` `click`, `scroll`, `hover`, `keydown`.  
+                    * `Input Validation:` Checking formats (email, password strength).  
+                    * `Feedback:` `alert`, `confirm`, or custom UI messages.  
+                    * `Accessibility:` Focus management, ARIA attributes, screen reader support.  
+                    
+                    ---
+
+                    ## 5. Utility Functions & Performance Optimization  
+                    *Definition:* Provides shared helpers and cross-cutting features, including debugging, storage, and performance monitoring.  
+                    * `Logging & Debugging:` `console.log`, `console.error`.  
+                    * `Date & Time:` Creating and formatting dates (`Date.now`, `Date.toLocaleString`).  
+                    * `State & Storage:` `localStorage`, `sessionStorage`, caching.  
+                    * `Performance Monitoring:` Debouncing, throttling, metrics collection.  
+                    
+                    ---
+
+                    ## 6. Security, Authentication, & Cryptography  
+                    *Definition:* Focuses on securing applications, managing user authentication, and handling cryptographic operations.  
+                    * `User Authentication:` OAuth, JWT, session management.  
+                    * `Input Validation & Sanitization:` Preventing XSS, SQL injection.  
+                    * `Secure Storage:` Encrypted cookies, token handling.  
+                    * `Cryptography:` Using the `SubtleCrypto` API for encryption/decryption.  
+                    
+                    ---
+
+                    ## 7. Functional Programming & Advanced Patterns  
+                    *Definition:* Emphasizes advanced patterns where functions operate on or produce other functions, and includes reusable logic.  
+                    * `Higher-Order Functions:` Currying, partial application.  
+                    * `Functional Composition:` Combining smaller functions for reusable logic.  
+                    * `Advanced Patterns:` Memoization, reactive programming, custom hooks.  
+                    
+                    ---
+
+                    ## 8. Others  
+                    *Definition:* Covers specialized or advanced tasks not fitting neatly in the categories above.  
+                    * `Progressive Web App (PWA) Features:` Service workers, push notifications, offline caching.  
+                    * `Localization & Internationalization:` Dynamic content translation, locale-specific formatting.  
+                    * `Advanced Browser APIs:` WebAssembly, device APIs (Bluetooth, camera), push notifications.  
+                    * `Workers:` Off-main-thread processing (e.g., Web Workers, Service Workers).
+
+                ###
+
+                Then produce a detailed JSON explanation with exactly four keys:
+                {
+                "categories": [...],
+                "explanations": "...",
+                "relevantFunctions": [
+                    {
+                    "functionName": "...",
+                    "description": "...",
+                    "argumentsExample": "...",
+                    "roleInDifferentialBehavior": "..."
+                    }
+                ],
+                "differentialBehavior": [...]
+                }
+
+                - "categories": an array of any applicable category names.
+                - "explanations": a thorough textual explanation of how the script works.
+                - "relevantFunctions": only those key/minified or special functions that matter for the script’s main logic or show differential/fallback behavior. Provide a brief 'description', an 'argumentsExample' if relevant, and a note if it contributes to any special adblock or gating logic.
+                - "differentialBehavior": an array of bullet points describing any fallback, region gating, adblock gating, etc.
+
+                Return ONLY the JSON object (no extra text, Markdown, disclaimers, or formatting).
+            """
+            user_prompt = f"""
+                Classify and explain this JavaScript under the specified categories. Cite only the critical minified/short functions or objects you think are important. Describe any fallback or differential behavior. Return only JSON (nothing else).
+
+                SOURCE URL: {i[0]}
+                SOURCE CODE: {i[1]}
+            """
+
+    
             body = {
                 'messages': [
                     {
                         "role": "user",
-                        "content": 
-                            f"""Classify the given JavaScript into one or more of the seven categories based on following data and return a dictionary in JSON compatible FORMAT with explanations of its functionality:
-                            ##
-                            SOURCE URL - {i[0]}
-                            ##
-                            SOURCE CODE - {i[1]}
-                            """
+                        "content": system_prompt
                     },
                     {
                         "role": "system",
-                        "content": 
-                            """
-                            You are an expert at analyzing JavaScript files based on both their public source URL and the provided source code. In case source URL is not present or clear, resort to source code based analysis. Your task is to classify each JavaScript instance into one or more of the predefined categories. Also provide verbose explanation of what the script does to the extent possible. Return a list of all categories that can be found in the script. If none of the categories fit, classify it under "Others," which covers topics outside the first seven categories.
-
-                            The eight categories are:
-                            ## 1. Data Manipulation & Processing  
-                            *Definition:* Involves creating, transforming, and interpreting data structures (arrays, strings, objects), as well as mathematical and algorithmic operations.  
-                            * `Arrays:` Filtering, mapping, reducing (`filter`, `map`, `reduce`).  
-                            * `Strings:` Extracting and replacing segments (`substring`, `replace`).  
-                            * `Objects:` Merging, copying, enumerating keys (`Object.assign`, `Object.keys`).  
-                            * `Mathematical Functions:` Built-in math methods (`Math.sqrt`, `Math.random`, `Math.round`).  
-                            * `Custom Algorithms:` Advanced numeric or data-structure logic (e.g., custom sorting).  
-                            * `State Management:` Managing application state (e.g., Redux, Vuex, `localStorage`, `sessionStorage`).  
-                            
-                            ---
-
-                            ## 2. DOM Manipulation & Rendering  
-                            *Definition:* Focuses on altering or interacting with the web page’s structure and style, including performance optimizations.  
-                            * `Adding/Removing Elements:` `appendChild`, `removeChild`.  
-                            * `Modifying Styles:` `style.backgroundColor`, `classList.add`.  
-                            * `Event Handling:` `addEventListener`, `removeEventListener` to respond to user actions.  
-                            * `Performance Optimizations:` Lazy loading, virtual DOM, rendering optimizations.  
-                            
-                            ---
-
-                            ## 3. Asynchronous Operations & Network Communication  
-                            *Definition:* Covers code that runs outside the normal synchronous flow, often involving server communication and third-party integrations.  
-                            * `Fetching Data:` `fetch`, `XMLHttpRequest`, Axios.  
-                            * `Promises & Async/Await:` `then`, `catch`, `finally`, `async/await`.  
-                            * `Timers:` `setTimeout`, `setInterval` for scheduled tasks.  
-                            * `Third-Party Integrations:` Google Analytics, payment gateways, social media widgets.  
-                            
-                            ---
-
-                            ## 4. User Interaction & Event Handling  
-                            *Definition:* Handles direct actions from users and visual/interactive responses, including accessibility features.  
-                            * `Event Listeners:` `click`, `scroll`, `hover`, `keydown`.  
-                            * `Input Validation:` Checking formats (email, password strength).  
-                            * `Feedback:` `alert`, `confirm`, or custom UI messages.  
-                            * `Accessibility:` Focus management, ARIA attributes, screen reader support.  
-                            
-                            ---
-
-                            ## 5. Utility Functions & Performance Optimization  
-                            *Definition:* Provides shared helpers and cross-cutting features, including debugging, storage, and performance monitoring.  
-                            * `Logging & Debugging:` `console.log`, `console.error`.  
-                            * `Date & Time:` Creating and formatting dates (`Date.now`, `Date.toLocaleString`).  
-                            * `State & Storage:` `localStorage`, `sessionStorage`, caching.  
-                            * `Performance Monitoring:` Debouncing, throttling, metrics collection.  
-                            
-                            ---
-
-                            ## 6. Security, Authentication, & Cryptography  
-                            *Definition:* Focuses on securing applications, managing user authentication, and handling cryptographic operations.  
-                            * `User Authentication:` OAuth, JWT, session management.  
-                            * `Input Validation & Sanitization:` Preventing XSS, SQL injection.  
-                            * `Secure Storage:` Encrypted cookies, token handling.  
-                            * `Cryptography:` Using the `SubtleCrypto` API for encryption/decryption.  
-                            
-                            ---
-
-                            ## 7. Functional Programming & Advanced Patterns  
-                            *Definition:* Emphasizes advanced patterns where functions operate on or produce other functions, and includes reusable logic.  
-                            * `Higher-Order Functions:` Currying, partial application.  
-                            * `Functional Composition:` Combining smaller functions for reusable logic.  
-                            * `Advanced Patterns:` Memoization, reactive programming, custom hooks.  
-                            
-                            ---
-
-                            ## 8. Others  
-                            *Definition:* Covers specialized or advanced tasks not fitting neatly in the categories above.  
-                            * `Progressive Web App (PWA) Features:` Service workers, push notifications, offline caching.  
-                            * `Localization & Internationalization:` Dynamic content translation, locale-specific formatting.  
-                            * `Advanced Browser APIs:` WebAssembly, device APIs (Bluetooth, camera), push notifications.  
-                            * `Workers:` Off-main-thread processing (e.g., Web Workers, Service Workers).  
-                            
-                            Take a thoughtful approach when determining the correct category. If you're unsure, take a moment to reconsider and identify the closest match. Only return results when you are certain, and avoid speculative guesses.
-
-                            ### Examples:
-                                - SOURCE URL - https://example.com/ui-handler.js, SOURCE - '// Toggles the visibility of a modal on button click
-                                document.getElementById('open-modal').addEventListener('click', function () {
-                                    const modal = document.getElementById('modal');
-                                    if (modal.style.display === 'none') {
-                                        modal.style.display = 'block';
-                                    } else {
-                                        modal.style.display = 'none';
-                                    }
-                                });' - {"categories": ["DOM Manipulation & Rendering"], "explanations": "The script changes the color of the modal varible in the DOM."}
-                                - SOURCE URL - https://api.example.com/fetch-data.js, SOURCE - '// Fetches data from a remote API and logs the response
-                                async function fetchData() {
-                                    try {
-                                        const response = await fetch('https://api.example.com/data');
-                                        if (!response.ok) {
-                                            throw new Error('Network response was not ok');
-                                        }
-                                        const data = await response.json();
-                                        console.log(data);
-                                    } catch (error) {
-                                        console.error('Error fetching data:', error);
-                                    }
-                                }
-
-                                fetchData();' - {"categories": "Asynchronous Operations & Network Communication", "explanations": "The script source code contains fetch api which fetches data from an api endpoint."}
-
-                            ### Output format:
-                            {'categories': [Category1, Category2, ...], 'explanations': explanation}
-                            Please don't output any supporting, formatting or explanatory text apart from the dictionary. Return a dictionary of all categories found with verbose explanation of the script functionality in JSON compatible FORMAT.
-                            """
+                        "content": user_prompt
                     },
                 ],
                 'temperature': 0
@@ -729,10 +721,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # investigate_new_scripts(args.directory, args.extn)
-    # investigate_granular_scripts(args.directory, args.extn)
+    investigate_granular_scripts(args.directory, args.extn)
     # identify_script_categories()
-    find_script_utility()
-    process_script_utility()
+    # find_script_utility()
+    # process_script_utility()
 
     # investigator = APIInvestigator(args.extn, args.url, args.directory)
     # investigator.process_urls()
