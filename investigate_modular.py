@@ -292,9 +292,10 @@ def identify_script_categories():
     print(count)
     FileHandler.save_json(cats, 'analysis_json/script_categories.json') 
 
-def find_script_utility():
+def find_script_utility(filepath):
     cats = FileHandler.load_json('analysis_json/script_categories.json')
-    llm_cats = {'categories': [], 'explanations': []}
+    # llm_cats = {'categories': [], 'explanations': []}
+    llm_cats = []
 
     api_key = os.getenv("OPENAI_KEY")
     if not api_key:
@@ -309,7 +310,7 @@ def find_script_utility():
         "Content-Type": "application/json"
     }
 
-    for i in cats:
+    for i in cats[50:]:
         try:
             system_prompt = """
                 You are an expert JavaScript analyst. You must classify the code under these categories:
@@ -401,10 +402,20 @@ def find_script_utility():
                 "differentialBehavior": [...]
                 }
 
-                - "categories": an array of any applicable category names.
-                - "explanations": a thorough textual explanation of how the script works.
-                - "relevantFunctions": only those key/minified or special functions that matter for the script’s main logic or show differential/fallback behavior. Provide a brief 'description', an 'argumentsExample' if relevant, and a note if it contributes to any special adblock or gating logic.
-                - "differentialBehavior": an array of bullet points describing any fallback, region gating, adblock gating, etc.
+                Where:
+                    - "categories": an array of the applicable categories by name.
+                    - "explanations": a thorough textual explanation of how the script works, referencing relevant variables or objects as needed.
+                    - "relevantFunctions": a short list of the script's key functions/objects, focusing on those that indicate important or potentially differential/fallback behavior. For each:
+                    - functionName: the name or short alias used in the code.
+                    - description: what it does or why it's significant.
+                    - argumentsExample: show an example or typical arguments if relevant.
+                    - roleInDifferentialBehavior: e.g., "adblock fallback," "paywall logic," or "none" if not involved in differential behavior.
+                    - "differentialBehavior": an array listing bullet points about possible differential logic or fallback, including a final mini-summary of whether it's *actually* differential w.r.t. adblock. For example:
+                    [
+                        "Bullet point on what functions are interesting in the context of adblocking",
+                        "Bullet point on region-based gating",
+                        "Final verdict: This does/does not appear to truly be differential behavior for adblock usage."
+                    ]
 
                 Return ONLY the JSON object (no extra text, Markdown, disclaimers, or formatting).
             """
@@ -439,10 +450,11 @@ def find_script_utility():
                 # cat = json.loads(f'''{cat}''')
                 # print(cat["categories"])
                 cat = json.loads(cat.replace('json', '').strip())
-
-                llm_cats['categories'].append(cat['categories'])
-                llm_cats['explanations'].append(cat['explanations'])
                 print(cat)
+                llm_cats.append(cat)
+                # llm_cats['categories'].append(cat['categories'])
+                # llm_cats['explanations'].append(cat['explanations'])
+                # print(cat)
                 # llm_cats.append(res.json()['choices'][0]['message']['content'].strip('`'))
                 # print(res.json()['choices'][0]['message']['content'])
             except JSONDecodeError as e:
@@ -456,7 +468,7 @@ def find_script_utility():
             print(f"Error processing batch: {e}")
             # llm_cats.append(None)
 
-        FileHandler.save_json(llm_cats, 'analysis_json/llm_script_categories.json')
+        FileHandler.save_json(llm_cats, filepath)
 
 def process_script_utility():
     a = FileHandler.load_json('analysis_json/llm_script_categories.json')
@@ -721,9 +733,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # investigate_new_scripts(args.directory, args.extn)
-    investigate_granular_scripts(args.directory, args.extn)
+    # investigate_granular_scripts(args.directory, args.extn)
     # identify_script_categories()
-    # find_script_utility()
+    find_script_utility("analysis_json/llm_script_categories_rest.json")
     # process_script_utility()
 
     # investigator = APIInvestigator(args.extn, args.url, args.directory)
